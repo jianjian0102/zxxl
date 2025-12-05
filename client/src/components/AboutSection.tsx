@@ -4,10 +4,10 @@ import { GraduationCap, Award, Briefcase, BookOpen } from "lucide-react";
 
 export default function AboutSection() {
   const qualifications = [
-    { icon: GraduationCap, label: "北京大学心理学硕士" },
-    { icon: Award, label: "国家二级心理咨询师" },
-    { icon: Briefcase, label: "8年执业经验" },
-    { icon: BookOpen, label: "CBT认证治疗师" },
+    { icon: GraduationCap, label: "建国大学心理咨询博士（韩国）" },
+    { icon: GraduationCap, label: "庆熙大学心理咨询硕士（韩国）" },
+    { icon: Award, label: "青少年咨询师二级（韩国国家资格证）" },
+    { icon: Briefcase, label: "3年执业经验" },
   ];
 
   const specialties = [
@@ -20,7 +20,7 @@ export default function AboutSection() {
   ];
 
   return (
-    <section className="py-16 bg-muted/30">
+    <section className="py-16">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-2xl md:text-3xl font-semibold mb-3" data-testid="text-about-title">
@@ -40,10 +40,10 @@ export default function AboutSection() {
                   <div className="space-y-3">
                     {qualifications.map((item, index) => (
                       <div key={index} className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <item.icon className="h-5 w-5 text-primary" />
                         </div>
-                        <span>{item.label}</span>
+                        <span className="text-sm">{item.label}</span>
                       </div>
                     ))}
                   </div>

@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Sparkles, Heart } from "lucide-react";
 
 export default function ServiceCards() {
@@ -59,9 +58,6 @@ export default function ServiceCards() {
           </Card>
 
           <Card className="hover-elevate relative overflow-visible" data-testid="card-public-welfare-counseling">
-            <Badge className="absolute -top-3 right-4" variant="secondary">
-              公益优惠
-            </Badge>
             <CardHeader>
               <div className="flex items-center gap-2 mb-2">
                 <Heart className="h-5 w-5 text-primary" />

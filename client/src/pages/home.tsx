@@ -9,9 +9,9 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col">
       <main className="flex-1">
         <HeroSection />
+        <AboutSection />
         <ServiceCards />
         <ProcessSteps />
-        <AboutSection />
       </main>
       <Footer />
     </div>

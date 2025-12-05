@@ -1,4 +1,4 @@
-import { Heart, Mail, MapPin, Phone } from "lucide-react";
+import { Heart, Mail, Clock } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -8,11 +8,10 @@ export default function Footer() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Heart className="h-5 w-5 text-primary" />
-              <span className="text-lg font-semibold">心灵港湾</span>
+              <span className="text-lg font-semibold">秩序心理</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              专业心理咨询服务，陪伴您探索内心世界，
-              找到属于自己的力量与方向。
+              专业心理咨询服务，陪伴您找到属于自己的内在秩序。
             </p>
           </div>
           
@@ -20,16 +19,8 @@ export default function Footer() {
             <h3 className="font-medium mb-4">联系方式</h3>
             <div className="space-y-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span>预约电话：138-xxxx-xxxx</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                <span>邮箱：counselor@example.com</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <span>地址：北京市朝阳区xxx大厦</span>
+                <span>邮箱：jianhongyu0102@outlook.com</span>
               </div>
             </div>
           </div>
@@ -37,19 +28,19 @@ export default function Footer() {
           <div>
             <h3 className="font-medium mb-4">咨询时间</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>周一至周五：9:00 - 18:00</p>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>周一至周五：10:00 - 20:00</span>
+              </div>
               <p>周六、周日：休息</p>
-              <p className="text-xs mt-4">
-                * 如需预约其他时间，请提前联系
-              </p>
             </div>
           </div>
         </div>
         
         <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>© 2025 心灵港湾心理咨询工作室 保留所有权利</p>
+          <p>© 2025 秩序心理 保留所有权利</p>
           <p className="mt-1 text-xs">
-            如您正处于危机中，请拨打心理援助热线：400-161-9995
+            如您正处于危机中，请拨打心理援助热线：12356
           </p>
         </div>
       </div>

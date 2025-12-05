@@ -22,7 +22,7 @@ export default function HeroSection() {
             心理咨询博士在读｜青少年咨询师二级（韩国国家资格证）
           </p>
           <p className="text-muted-foreground mb-8 max-w-xl leading-relaxed" data-testid="text-hero-description">
-            拥有3年心理咨询师经验，以人本主义为核心的综合流派。专注于情绪调节、人际关系、职业发展等领域。希望帮助每一位来访者重新找到内在秩序。
+            拥有3年心理咨询师经验，以人本主义为核心的综合流派。专注于情绪调节、人际关系、职业发展等领域。希望帮助每一位来访者建立内在秩序。
           </p>
           
           <div className="flex flex-wrap justify-center gap-3 mb-12">
