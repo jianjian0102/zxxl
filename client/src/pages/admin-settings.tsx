@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Plus, Trash2, CalendarX, Settings } from "lucide-react";
+import { Calendar, Clock, Plus, Trash2, CalendarX, Settings, Megaphone, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import type { ScheduleSetting, BlockedDate } from "@shared/schema";
+import AnnouncementList from "@/components/AnnouncementList";
+import MessageCenter from "@/components/MessageCenter";
 
 const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -145,22 +147,30 @@ export default function AdminSettingsPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Settings className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">咨询时间管理</h1>
+          <h1 className="text-3xl font-bold">管理中心</h1>
         </div>
         <p className="text-muted-foreground">
-          配置每周可预约时段和不可预约的特殊日期
+          管理咨询时间、公告和留言
         </p>
       </div>
 
       <Tabs defaultValue="schedule" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="schedule" className="gap-2" data-testid="tab-schedule">
             <Clock className="w-4 h-4" />
-            每周时段
+            咨询时间
           </TabsTrigger>
           <TabsTrigger value="blocked" className="gap-2" data-testid="tab-blocked">
             <CalendarX className="w-4 h-4" />
             不可预约日期
+          </TabsTrigger>
+          <TabsTrigger value="announcements" className="gap-2" data-testid="tab-announcements">
+            <Megaphone className="w-4 h-4" />
+            公告管理
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-2" data-testid="tab-messages">
+            <MessageSquare className="w-4 h-4" />
+            留言管理
           </TabsTrigger>
         </TabsList>
 
@@ -393,6 +403,26 @@ export default function AdminSettingsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="announcements" className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold mb-2">公告管理</h2>
+            <p className="text-muted-foreground text-sm">
+              发布和管理咨询师公告，来访者可以在公告栏页面查看
+            </p>
+          </div>
+          <AnnouncementList isAdmin={true} />
+        </TabsContent>
+
+        <TabsContent value="messages" className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold mb-2">留言管理</h2>
+            <p className="text-muted-foreground text-sm">
+              查看和回复来访者留言
+            </p>
+          </div>
+          <MessageCenter isAdmin={true} />
         </TabsContent>
       </Tabs>
     </div>
