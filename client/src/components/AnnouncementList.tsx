@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -24,98 +27,133 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Calendar, Edit, Trash2, Plus, Megaphone } from "lucide-react";
+import { Calendar, Edit, Trash2, Plus, Megaphone, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
-
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: Date;
-  isPinned: boolean;
-}
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Announcement } from "@shared/schema";
 
 interface AnnouncementListProps {
   isAdmin?: boolean;
 }
 
 export default function AnnouncementList({ isAdmin = false }: AnnouncementListProps) {
-  // todo: remove mock functionality - fetch from API
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: "1",
-      title: "春节期间咨询安排通知",
-      content: "各位来访者好，春节期间（1月28日-2月4日）咨询服务暂停，2月5日起恢复正常预约。如有紧急情况，请拨打心理援助热线。祝大家新年快乐！",
-      createdAt: new Date("2025-01-20"),
-      isPinned: true,
-    },
-    {
-      id: "2",
-      title: "公益咨询名额开放通知",
-      content: "2月份公益低价咨询名额已开放预约，本月共有10个名额，面向学生群体和经济困难人士。请有需要的来访者尽快预约。",
-      createdAt: new Date("2025-01-15"),
-      isPinned: false,
-    },
-    {
-      id: "3",
-      title: "线上咨询平台升级",
-      content: "为了给大家提供更好的线上咨询体验，我们的视频咨询平台已完成升级，支持更稳定的连接和更清晰的画质。如在使用中遇到问题，请随时联系我。",
-      createdAt: new Date("2025-01-10"),
-      isPinned: false,
-    },
-  ]);
-
+  const { toast } = useToast();
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [isPinned, setIsPinned] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  const { data: announcements = [], isLoading } = useQuery<Announcement[]>({
+    queryKey: ["/api/announcements"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { title: string; content: string; isPinned: boolean }) => {
+      const response = await apiRequest("POST", "/api/announcements", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      setNewTitle("");
+      setNewContent("");
+      setIsPinned(false);
+      setIsCreateOpen(false);
+      toast({
+        title: "发布成功",
+        description: "公告已成功发布",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "发布失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Announcement> }) => {
+      const response = await apiRequest("PATCH", `/api/announcements/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      setEditingAnnouncement(null);
+      setNewTitle("");
+      setNewContent("");
+      setIsPinned(false);
+      setIsEditOpen(false);
+      toast({
+        title: "更新成功",
+        description: "公告已更新",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "更新失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/announcements/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/announcements"] });
+      toast({
+        title: "删除成功",
+        description: "公告已删除",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "删除失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreate = () => {
     if (!newTitle.trim() || !newContent.trim()) return;
-    
-    const newAnnouncement: Announcement = {
-      id: Date.now().toString(),
-      title: newTitle,
-      content: newContent,
-      createdAt: new Date(),
-      isPinned: false,
-    };
-    
-    setAnnouncements([newAnnouncement, ...announcements]);
-    setNewTitle("");
-    setNewContent("");
-    setIsCreateOpen(false);
-    console.log("Created announcement:", newAnnouncement);
+    createMutation.mutate({ title: newTitle, content: newContent, isPinned });
   };
 
   const handleEdit = () => {
     if (!editingAnnouncement || !newTitle.trim() || !newContent.trim()) return;
-    
-    setAnnouncements(announcements.map(a => 
-      a.id === editingAnnouncement.id 
-        ? { ...a, title: newTitle, content: newContent }
-        : a
-    ));
-    setEditingAnnouncement(null);
-    setNewTitle("");
-    setNewContent("");
-    setIsEditOpen(false);
-    console.log("Edited announcement:", editingAnnouncement.id);
+    updateMutation.mutate({
+      id: editingAnnouncement.id,
+      data: { title: newTitle, content: newContent, isPinned },
+    });
   };
 
   const handleDelete = (id: string) => {
-    setAnnouncements(announcements.filter(a => a.id !== id));
-    console.log("Deleted announcement:", id);
+    deleteMutation.mutate(id);
   };
 
   const openEditDialog = (announcement: Announcement) => {
     setEditingAnnouncement(announcement);
     setNewTitle(announcement.title);
     setNewContent(announcement.content);
+    setIsPinned(announcement.isPinned);
     setIsEditOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -155,12 +193,21 @@ export default function AnnouncementList({ isAdmin = false }: AnnouncementListPr
                     data-testid="textarea-announcement-content"
                   />
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isPinned"
+                    checked={isPinned}
+                    onCheckedChange={(checked) => setIsPinned(checked === true)}
+                  />
+                  <Label htmlFor="isPinned">置顶此公告</Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                   取消
                 </Button>
-                <Button onClick={handleCreate} data-testid="button-confirm-create">
+                <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-confirm-create">
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   发布
                 </Button>
               </DialogFooter>
@@ -191,7 +238,7 @@ export default function AnnouncementList({ isAdmin = false }: AnnouncementListPr
                     </div>
                     <CardDescription className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {format(announcement.createdAt, "yyyy年M月d日", { locale: zhCN })}
+                      {announcement.createdAt && format(new Date(announcement.createdAt), "yyyy年M月d日", { locale: zhCN })}
                     </CardDescription>
                   </div>
                   
@@ -267,12 +314,21 @@ export default function AnnouncementList({ isAdmin = false }: AnnouncementListPr
                 className="min-h-[120px]"
               />
             </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPinnedEdit"
+                checked={isPinned}
+                onCheckedChange={(checked) => setIsPinned(checked === true)}
+              />
+              <Label htmlFor="isPinnedEdit">置顶此公告</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleEdit}>
+            <Button onClick={handleEdit} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               保存
             </Button>
           </DialogFooter>

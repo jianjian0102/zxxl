@@ -34,7 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Shield } from "lucide-react";
+import { FileText, Shield, Loader2 } from "lucide-react";
 
 const concernTopics = [
   "自我探索",
@@ -71,9 +71,10 @@ type IntakeFormValues = z.infer<typeof intakeFormSchema>;
 interface IntakeFormProps {
   onSubmit: (data: IntakeFormValues) => void;
   onBack: () => void;
+  isSubmitting?: boolean;
 }
 
-export default function IntakeForm({ onSubmit, onBack }: IntakeFormProps) {
+export default function IntakeForm({ onSubmit, onBack, isSubmitting = false }: IntakeFormProps) {
   const form = useForm<IntakeFormValues>({
     resolver: zodResolver(intakeFormSchema),
     defaultValues: {
@@ -493,11 +494,12 @@ export default function IntakeForm({ onSubmit, onBack }: IntakeFormProps) {
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={onBack} data-testid="button-back">
+              <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting} data-testid="button-back">
                 返回修改时间
               </Button>
-              <Button type="submit" className="flex-1" data-testid="button-submit-form">
-                提交预约申请
+              <Button type="submit" className="flex-1" disabled={isSubmitting} data-testid="button-submit-form">
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSubmitting ? "提交中..." : "提交预约申请"}
               </Button>
             </div>
           </form>

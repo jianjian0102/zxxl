@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { useLocation, useSearch } from "wouter";
+import { useSearch } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Sparkles, Heart, Check } from "lucide-react";
+import { ArrowLeft, Sparkles, Heart, Loader2 } from "lucide-react";
 import BookingCalendar from "@/components/BookingCalendar";
 import IntakeForm from "@/components/IntakeForm";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import Footer from "@/components/Footer";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 type BookingStep = "select-type" | "select-time" | "fill-form" | "confirmation";
 type ConsultationType = "regular" | "welfare";
@@ -17,6 +21,7 @@ export default function BookingPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const initialType = params.get("type") as ConsultationType | null;
+  const { toast } = useToast();
   
   const [step, setStep] = useState<BookingStep>(initialType ? "select-time" : "select-type");
   const [consultationType, setConsultationType] = useState<ConsultationType | null>(initialType);
@@ -32,6 +37,31 @@ export default function BookingPage() {
   };
 
   const stepLabels = ["选择类型", "选择时间", "填写表单", "完成"];
+
+  const createAppointmentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/appointments", data);
+      return response.json();
+    },
+    onSuccess: (result) => {
+      setFormData(result);
+      setStep("confirmation");
+      toast({
+        title: "预约成功",
+        description: "您的预约申请已提交，咨询师将尽快确认",
+      });
+    },
+    onError: (error: any) => {
+      const message = error.message.includes("409") 
+        ? "该时间段已被预约，请选择其他时间" 
+        : "预约失败，请稍后重试";
+      toast({
+        title: "预约失败",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleSelectType = (type: ConsultationType) => {
     setConsultationType(type);
@@ -49,10 +79,34 @@ export default function BookingPage() {
     }
   };
 
-  const handleFormSubmit = (data: any) => {
-    setFormData(data);
-    setStep("confirmation");
-    console.log("Booking completed:", { consultationType, selectedDate, selectedTime, ...data });
+  const handleFormSubmit = async (data: any) => {
+    if (!selectedDate || !selectedTime || !consultationType) return;
+    
+    const appointmentData = {
+      appointmentDate: format(selectedDate, "yyyy-MM-dd"),
+      appointmentTime: selectedTime,
+      consultationType: consultationType,
+      consultationMode: data.consultationMode,
+      name: data.name,
+      gender: data.gender,
+      birthDate: data.birthDate,
+      occupation: data.occupation,
+      hobbies: data.hobbies || null,
+      contactPhone: data.contactPhone,
+      contactEmail: data.contactEmail || null,
+      emergencyContact: null,
+      hasPreviousCounseling: data.previousCounseling === "yes",
+      previousCounselingDetails: null,
+      hasMentalDiagnosis: data.diagnosedCondition === "yes",
+      mentalDiagnosisDetails: null,
+      currentMedication: data.currentMedication || null,
+      consultationTopics: data.concernTopics,
+      situationDescription: data.detailedDescription,
+      dataCollectionConsent: data.dataCollectionConsent,
+      confidentialityConsent: data.confidentialityConsent,
+    };
+    
+    createAppointmentMutation.mutate(appointmentData);
   };
 
   const handleBack = () => {
@@ -187,7 +241,7 @@ export default function BookingPage() {
                   <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-calendar">
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="secondary">
                       {consultationType === "regular" ? "一般咨询" : "公益低价咨询"}
                     </Badge>
@@ -202,6 +256,7 @@ export default function BookingPage() {
                 <IntakeForm
                   onSubmit={handleFormSubmit}
                   onBack={handleBack}
+                  isSubmitting={createAppointmentMutation.isPending}
                 />
               </div>
             )}

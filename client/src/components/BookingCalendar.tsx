@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, Video } from "lucide-react";
-import { format, addDays, isSameDay } from "date-fns";
+import { Clock, MapPin, Video, Loader2 } from "lucide-react";
+import { format, addDays } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
 interface TimeSlot {
@@ -17,39 +18,42 @@ interface BookingCalendarProps {
   onSelectSlot: (date: Date, time: string) => void;
 }
 
+const ALL_TIME_SLOTS = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
+
 export default function BookingCalendar({ consultationType, onSelectSlot }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  // todo: remove mock functionality - fetch from API
-  const getAvailableSlots = (date: Date): TimeSlot[] => {
-    const dayOfWeek = date.getDay();
+  const dateString = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
+
+  const { data: bookedData, isLoading } = useQuery<{ bookedSlots: string[] }>({
+    queryKey: ["/api/appointments/slots", dateString],
+    enabled: !!dateString,
+  });
+
+  const getAvailableSlots = (): TimeSlot[] => {
+    if (!selectedDate) return [];
+    const dayOfWeek = selectedDate.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) return [];
     
-    const baseSlots = [
-      { time: "09:00", available: true },
-      { time: "10:00", available: true },
-      { time: "11:00", available: false },
-      { time: "14:00", available: true },
-      { time: "15:00", available: true },
-      { time: "16:00", available: false },
-      { time: "17:00", available: true },
-    ];
-    
-    return baseSlots.map((slot, index) => ({
-      ...slot,
-      available: slot.available && (date.getDate() + index) % 3 !== 0,
+    const bookedSlots = bookedData?.bookedSlots || [];
+    return ALL_TIME_SLOTS.map((time) => ({
+      time,
+      available: !bookedSlots.includes(time),
     }));
   };
 
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const maxDate = addDays(today, 30);
 
   const disabledDays = (date: Date) => {
-    return date < today || date > maxDate || date.getDay() === 0 || date.getDay() === 6;
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today || d > maxDate || date.getDay() === 0 || date.getDay() === 6;
   };
 
-  const timeSlots = selectedDate ? getAvailableSlots(selectedDate) : [];
+  const timeSlots = getAvailableSlots();
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
@@ -95,7 +99,11 @@ export default function BookingCalendar({ consultationType, onSelectSlot }: Book
         </CardHeader>
         <CardContent>
           {selectedDate ? (
-            timeSlots.length > 0 ? (
+            isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : timeSlots.length > 0 ? (
               <div className="grid grid-cols-2 gap-3">
                 {timeSlots.map((slot) => (
                   <Button
