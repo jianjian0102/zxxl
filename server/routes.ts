@@ -108,16 +108,16 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Appointment not found" });
       }
       
-      // Check modification deadline: 11:00 AM on the day before
+      // Check modification deadline: 10:00 PM on the day before
       const appointmentDate = new Date(appointment.appointmentDate);
       const deadline = new Date(appointmentDate);
       deadline.setDate(deadline.getDate() - 1);
-      deadline.setHours(11, 0, 0, 0);
+      deadline.setHours(22, 0, 0, 0);
       
       if (new Date() > deadline) {
         return res.status(403).json({ 
           error: "Modification deadline passed",
-          message: "修改截止时间已过（咨询前一天11:00前）"
+          message: "修改截止时间已过（咨询前一天22:00前）"
         });
       }
       
@@ -151,16 +151,16 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Appointment not found" });
       }
       
-      // Check cancellation deadline: 11:00 AM on the day before
+      // Check cancellation deadline: 10:00 PM on the day before
       const appointmentDate = new Date(appointment.appointmentDate);
       const deadline = new Date(appointmentDate);
       deadline.setDate(deadline.getDate() - 1);
-      deadline.setHours(11, 0, 0, 0);
+      deadline.setHours(22, 0, 0, 0);
       
       if (new Date() > deadline) {
         return res.status(403).json({ 
           error: "Cancellation deadline passed",
-          message: "取消截止时间已过（咨询前一天11:00前）"
+          message: "取消截止时间已过（咨询前一天22:00前）"
         });
       }
       

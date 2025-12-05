@@ -35,7 +35,7 @@ import type { Appointment } from "@shared/schema";
 function getModificationDeadline(appointmentDate: string): Date {
   const date = parseISO(appointmentDate);
   const deadline = subDays(date, 1);
-  return setMinutes(setHours(deadline, 11), 0);
+  return setMinutes(setHours(deadline, 22), 0);
 }
 
 function canModifyAppointment(appointmentDate: string): boolean {
@@ -88,7 +88,7 @@ export default function AppointmentsPage() {
     onError: (error: any) => {
       toast({
         title: "取消失败",
-        description: error?.message || "取消截止时间已过（咨询前一天11:00前）",
+        description: error?.message || "取消截止时间已过（咨询前一天22:00前）",
         variant: "destructive",
       });
     },
