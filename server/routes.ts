@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import {
@@ -11,11 +11,63 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import bcrypt from "bcrypt";
+
+const ADMIN_USERNAME = "jianjian0102";
+const ADMIN_PASSWORD_HASH = "$2b$10$ZDkMBlEUgct87nL49LFAku7WHpM6zDRcKBmAIZ4EyLVDZSQbgQEWu";
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.isAdmin) {
+    return res.status(401).json({ error: "未授权访问" });
+  }
+  next();
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // ============ ADMIN AUTH API ============
+
+  app.post("/api/admin/login", async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "请输入用户名和密码" });
+      }
+      
+      if (username !== ADMIN_USERNAME) {
+        return res.status(401).json({ error: "用户名或密码错误" });
+      }
+      
+      const isValidPassword = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "用户名或密码错误" });
+      }
+      
+      req.session.isAdmin = true;
+      res.json({ success: true, message: "登录成功" });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "登录失败" });
+    }
+  });
+
+  app.post("/api/admin/logout", (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "登出失败" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true, message: "已登出" });
+    });
+  });
+
+  app.get("/api/admin/me", (req: Request, res: Response) => {
+    res.json({ isAdmin: !!req.session?.isAdmin });
+  });
+
   // ============ APPOINTMENTS API ============
 
   // Get all appointments (admin only in production)
@@ -288,7 +340,7 @@ export async function registerRoutes(
   });
 
   // Create announcement (admin only)
-  app.post("/api/announcements", async (req: Request, res: Response) => {
+  app.post("/api/announcements", requireAdmin, async (req: Request, res: Response) => {
     try {
       const validatedData = insertAnnouncementSchema.parse(req.body);
       const announcement = await storage.createAnnouncement(validatedData);
@@ -303,7 +355,7 @@ export async function registerRoutes(
   });
 
   // Update announcement (admin only)
-  app.patch("/api/announcements/:id", async (req: Request, res: Response) => {
+  app.patch("/api/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const announcement = await storage.updateAnnouncement(req.params.id, req.body);
       if (!announcement) {
@@ -317,7 +369,7 @@ export async function registerRoutes(
   });
 
   // Delete announcement (admin only)
-  app.delete("/api/announcements/:id", async (req: Request, res: Response) => {
+  app.delete("/api/announcements/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const success = await storage.deleteAnnouncement(req.params.id);
       if (!success) {
@@ -390,7 +442,7 @@ export async function registerRoutes(
   });
 
   // Create schedule setting (admin only)
-  app.post("/api/schedule-settings", async (req: Request, res: Response) => {
+  app.post("/api/schedule-settings", requireAdmin, async (req: Request, res: Response) => {
     try {
       const validatedData = insertScheduleSettingSchema.parse(req.body);
       const setting = await storage.createScheduleSetting(validatedData);
@@ -405,7 +457,7 @@ export async function registerRoutes(
   });
 
   // Update schedule setting (admin only)
-  app.patch("/api/schedule-settings/:id", async (req: Request, res: Response) => {
+  app.patch("/api/schedule-settings/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const setting = await storage.updateScheduleSetting(req.params.id, req.body);
       if (!setting) {
@@ -419,7 +471,7 @@ export async function registerRoutes(
   });
 
   // Delete schedule setting (admin only)
-  app.delete("/api/schedule-settings/:id", async (req: Request, res: Response) => {
+  app.delete("/api/schedule-settings/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const success = await storage.deleteScheduleSetting(req.params.id);
       if (!success) {
@@ -435,7 +487,7 @@ export async function registerRoutes(
   // ============ BLOCKED DATES API ============
 
   // Get all blocked dates (admin only)
-  app.get("/api/blocked-dates", async (req: Request, res: Response) => {
+  app.get("/api/blocked-dates", requireAdmin, async (req: Request, res: Response) => {
     try {
       const blockedDates = await storage.getBlockedDates();
       res.json(blockedDates);
@@ -446,7 +498,7 @@ export async function registerRoutes(
   });
 
   // Create blocked date (admin only)
-  app.post("/api/blocked-dates", async (req: Request, res: Response) => {
+  app.post("/api/blocked-dates", requireAdmin, async (req: Request, res: Response) => {
     try {
       const validatedData = insertBlockedDateSchema.parse(req.body);
       const blockedDate = await storage.createBlockedDate(validatedData);
@@ -461,7 +513,7 @@ export async function registerRoutes(
   });
 
   // Delete blocked date (admin only)
-  app.delete("/api/blocked-dates/:id", async (req: Request, res: Response) => {
+  app.delete("/api/blocked-dates/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const success = await storage.deleteBlockedDate(req.params.id);
       if (!success) {
@@ -477,7 +529,7 @@ export async function registerRoutes(
   // ============ MESSAGES & CONVERSATIONS API ============
 
   // Get all conversations (admin view)
-  app.get("/api/conversations", async (req: Request, res: Response) => {
+  app.get("/api/conversations", requireAdmin, async (req: Request, res: Response) => {
     try {
       const conversations = await storage.getConversations();
       res.json(conversations);
@@ -572,8 +624,8 @@ export async function registerRoutes(
     }
   });
 
-  // Mark messages as read
-  app.post("/api/conversations/:id/read", async (req: Request, res: Response) => {
+  // Mark messages as read (admin only)
+  app.post("/api/conversations/:id/read", requireAdmin, async (req: Request, res: Response) => {
     try {
       await storage.markMessagesAsRead(req.params.id);
       res.status(200).json({ success: true });
@@ -583,8 +635,8 @@ export async function registerRoutes(
     }
   });
 
-  // Resolve conversation
-  app.post("/api/conversations/:id/resolve", async (req: Request, res: Response) => {
+  // Resolve conversation (admin only)
+  app.post("/api/conversations/:id/resolve", requireAdmin, async (req: Request, res: Response) => {
     try {
       const conversation = await storage.resolveConversation(req.params.id);
       if (!conversation) {
