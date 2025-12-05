@@ -266,6 +266,22 @@ export async function registerRoutes(
     }
   });
 
+  // Get conversation by email (for visitors to find their existing conversation)
+  app.get("/api/conversations/by-email/:email", async (req: Request, res: Response) => {
+    try {
+      const email = decodeURIComponent(req.params.email);
+      const conversation = await storage.getConversationByEmail(email);
+      if (!conversation) {
+        return res.status(404).json({ error: "No conversation found for this email" });
+      }
+      const messages = await storage.getMessagesByConversation(conversation.id);
+      res.json({ ...conversation, messages });
+    } catch (error) {
+      console.error("Error fetching conversation by email:", error);
+      res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+
   // Get single conversation with messages
   app.get("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
@@ -285,6 +301,21 @@ export async function registerRoutes(
   app.post("/api/conversations", async (req: Request, res: Response) => {
     try {
       const validatedData = insertConversationSchema.parse(req.body);
+      
+      // Check if email is provided (required)
+      if (!validatedData.visitorEmail) {
+        return res.status(400).json({ error: "邮箱是必填项" });
+      }
+      
+      // Check if email already has a conversation
+      const existingConversation = await storage.getConversationByEmail(validatedData.visitorEmail);
+      if (existingConversation) {
+        return res.status(409).json({ 
+          error: "该邮箱已有对话记录",
+          existingConversationId: existingConversation.id 
+        });
+      }
+      
       const conversation = await storage.createConversation(validatedData);
       res.status(201).json(conversation);
     } catch (error) {

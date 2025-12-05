@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Send, User, Loader2, MessageCircle, Plus } from "lucide-react";
+import { Send, User, Loader2, MessageCircle, Mail, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -23,23 +23,33 @@ interface ConversationWithMessages extends Conversation {
   messages: Message[];
 }
 
+type VisitorView = "email_entry" | "new_conversation" | "chat";
+
 export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
   const { toast } = useToast();
+  const [visitorView, setVisitorView] = useState<VisitorView>("email_entry");
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [visitorName, setVisitorName] = useState("");
   const [visitorEmail, setVisitorEmail] = useState("");
+  const [searchedEmail, setSearchedEmail] = useState("");
+  const [visitorName, setVisitorName] = useState("");
   const [subject, setSubject] = useState("");
-  const [showNewConversation, setShowNewConversation] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations = [], isLoading: loadingConversations } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
+    enabled: isAdmin,
   });
 
   const { data: conversationDetail, isLoading: loadingDetail } = useQuery<ConversationWithMessages>({
     queryKey: ["/api/conversations", selectedConversationId],
     enabled: !!selectedConversationId,
+  });
+
+  const { data: existingConversation, isLoading: checkingEmail, refetch: checkEmail } = useQuery<ConversationWithMessages>({
+    queryKey: [`/api/conversations/by-email/${encodeURIComponent(searchedEmail)}`],
+    enabled: false,
+    retry: false,
   });
 
   const messages = conversationDetail?.messages || [];
@@ -50,35 +60,35 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (!isAdmin && conversations.length > 0 && !selectedConversationId) {
-      setSelectedConversationId(conversations[0].id);
-    }
-  }, [conversations, isAdmin, selectedConversationId]);
-
   const createConversationMutation = useMutation({
-    mutationFn: async (data: { visitorName: string; visitorEmail?: string; subject?: string }) => {
+    mutationFn: async (data: { visitorName: string; visitorEmail: string; subject?: string }) => {
       const response = await apiRequest("POST", "/api/conversations", data);
       return response.json();
     },
     onSuccess: (newConversation: Conversation) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
       setSelectedConversationId(newConversation.id);
-      setShowNewConversation(false);
-      setVisitorName("");
-      setVisitorEmail("");
-      setSubject("");
+      setVisitorView("chat");
       toast({
         title: "对话已创建",
         description: "您可以开始发送消息了",
       });
     },
-    onError: () => {
-      toast({
-        title: "创建失败",
-        description: "请稍后重试",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      if (error?.existingConversationId) {
+        setSelectedConversationId(error.existingConversationId);
+        setVisitorView("chat");
+        toast({
+          title: "已找到您的对话",
+          description: "您已有一个对话，正在为您打开",
+        });
+      } else {
+        toast({
+          title: "创建失败",
+          description: error?.message || "请稍后重试",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -105,6 +115,53 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
     },
   });
 
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!visitorEmail.trim()) {
+      toast({
+        title: "请输入邮箱",
+        description: "邮箱是必填项",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(visitorEmail)) {
+      toast({
+        title: "邮箱格式不正确",
+        description: "请输入有效的邮箱地址",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSearchedEmail(visitorEmail);
+    
+    try {
+      const response = await fetch(`/api/conversations/by-email/${encodeURIComponent(visitorEmail)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedConversationId(data.id);
+        setVisitorView("chat");
+        toast({
+          title: "找到您的对话",
+          description: "正在为您打开已有对话",
+        });
+      } else if (response.status === 404) {
+        setVisitorView("new_conversation");
+      } else {
+        throw new Error("查询失败");
+      }
+    } catch (error) {
+      toast({
+        title: "查询失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCreateConversation = () => {
     if (!visitorName.trim()) {
       toast({
@@ -116,7 +173,7 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
     }
     createConversationMutation.mutate({
       visitorName,
-      visitorEmail: visitorEmail || undefined,
+      visitorEmail: searchedEmail,
       subject: subject || undefined,
     });
   };
@@ -139,7 +196,15 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
     }
   };
 
-  if (loadingConversations) {
+  const handleBackToEmail = () => {
+    setVisitorView("email_entry");
+    setSearchedEmail("");
+    setVisitorName("");
+    setSubject("");
+    setSelectedConversationId(null);
+  };
+
+  if (loadingConversations && isAdmin) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -178,7 +243,7 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {conv.subject || "一般咨询"}
+                          {conv.visitorEmail || conv.subject || "一般咨询"}
                         </span>
                       </div>
                     </Button>
@@ -200,7 +265,7 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
                   <div>
                     <div className="text-base font-medium">{conversationDetail.visitorName}</div>
                     <div className="text-sm text-muted-foreground font-normal">
-                      {conversationDetail.subject || "一般咨询"}
+                      {conversationDetail.visitorEmail}
                     </div>
                   </div>
                 </CardTitle>
@@ -281,14 +346,64 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
     );
   }
 
-  if (showNewConversation || conversations.length === 0) {
+  if (visitorView === "email_entry") {
     return (
       <Card className="max-w-lg mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={counselorImage} />
-              <AvatarFallback>李</AvatarFallback>
+              <AvatarFallback>咨</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="text-base font-medium">留言咨询</div>
+              <div className="text-sm text-muted-foreground font-normal">
+                请输入您的邮箱开始留言
+              </div>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                您的邮箱 *
+              </label>
+              <Input
+                type="email"
+                placeholder="请输入邮箱"
+                value={visitorEmail}
+                onChange={(e) => setVisitorEmail(e.target.value)}
+                data-testid="input-visitor-email"
+              />
+              <p className="text-xs text-muted-foreground">
+                每个邮箱只能开启一个对话，如已有对话将自动打开
+              </p>
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={checkingEmail}
+              data-testid="button-check-email"
+            >
+              {checkingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              继续
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (visitorView === "new_conversation") {
+    return (
+      <Card className="max-w-lg mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={counselorImage} />
+              <AvatarFallback>咨</AvatarFallback>
             </Avatar>
             <div>
               <div className="text-base font-medium">开始新对话</div>
@@ -299,6 +414,10 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="p-3 bg-muted rounded-lg">
+            <div className="text-sm text-muted-foreground">您的邮箱</div>
+            <div className="font-medium">{searchedEmail}</div>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">您的姓名 *</label>
             <Input
@@ -306,15 +425,6 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
               value={visitorName}
               onChange={(e) => setVisitorName(e.target.value)}
               data-testid="input-visitor-name"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">邮箱（选填）</label>
-            <Input
-              placeholder="请输入邮箱"
-              value={visitorEmail}
-              onChange={(e) => setVisitorEmail(e.target.value)}
-              data-testid="input-visitor-email"
             />
           </div>
           <div className="space-y-2">
@@ -326,24 +436,25 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
               data-testid="input-subject"
             />
           </div>
-          <Button
-            className="w-full"
-            onClick={handleCreateConversation}
-            disabled={createConversationMutation.isPending}
-            data-testid="button-start-conversation"
-          >
-            {createConversationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            开始对话
-          </Button>
-          {conversations.length > 0 && (
+          <div className="flex gap-3">
             <Button
               variant="outline"
-              className="w-full"
-              onClick={() => setShowNewConversation(false)}
+              onClick={handleBackToEmail}
+              data-testid="button-back"
             >
-              返回已有对话
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              返回
             </Button>
-          )}
+            <Button
+              className="flex-1"
+              onClick={handleCreateConversation}
+              disabled={createConversationMutation.isPending}
+              data-testid="button-start-conversation"
+            >
+              {createConversationMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              开始对话
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -352,26 +463,27 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
   return (
     <Card className="h-[600px] flex flex-col">
       <CardHeader className="border-b pb-4">
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={counselorImage} />
-              <AvatarFallback>李</AvatarFallback>
+              <AvatarFallback>咨</AvatarFallback>
             </Avatar>
             <div>
               <div className="text-base font-medium">与咨询师对话</div>
               <div className="text-sm text-muted-foreground font-normal">
-                有任何问题都可以留言
+                {searchedEmail || conversationDetail?.visitorEmail}
               </div>
             </div>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowNewConversation(true)}
+            onClick={handleBackToEmail}
+            data-testid="button-change-email"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            新对话
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            更换邮箱
           </Button>
         </CardTitle>
       </CardHeader>
@@ -380,6 +492,13 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
         {loadingDetail ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <div className="text-center">
+              <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>开始发送您的第一条消息</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -393,7 +512,7 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
                   {message.isFromAdmin ? (
                     <>
                       <AvatarImage src={counselorImage} />
-                      <AvatarFallback>李</AvatarFallback>
+                      <AvatarFallback>咨</AvatarFallback>
                     </>
                   ) : (
                     <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
