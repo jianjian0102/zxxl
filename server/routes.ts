@@ -6,6 +6,8 @@ import {
   insertAnnouncementSchema,
   insertMessageSchema,
   insertConversationSchema,
+  insertScheduleSettingSchema,
+  insertBlockedDateSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -250,6 +252,150 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting announcement:", error);
       res.status(500).json({ error: "Failed to delete announcement" });
+    }
+  });
+
+  // ============ SCHEDULE SETTINGS API ============
+
+  // Initialize default schedule (called on app startup or first access)
+  await storage.initializeDefaultSchedule();
+
+  // Get all schedule settings (admin only)
+  app.get("/api/schedule-settings", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getScheduleSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching schedule settings:", error);
+      res.status(500).json({ error: "Failed to fetch schedule settings" });
+    }
+  });
+
+  // Get available time slots for a specific date (public)
+  app.get("/api/schedule/available/:date", async (req: Request, res: Response) => {
+    try {
+      const dateStr = req.params.date;
+      const mode = req.query.mode as "online" | "offline" | undefined;
+      
+      // Check if date is blocked
+      const isBlocked = await storage.isDateBlocked(dateStr);
+      if (isBlocked) {
+        return res.json({ slots: [], isBlocked: true });
+      }
+      
+      // Get day of week from date
+      const date = new Date(dateStr);
+      const dayOfWeek = date.getDay();
+      
+      // Get schedule settings for this day
+      const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
+      
+      // Get already booked slots
+      const bookedSlots = await storage.getBookedSlots(dateStr);
+      
+      // Filter by mode if specified
+      const availableSlots = daySettings
+        .filter(s => {
+          if (mode === "online") return s.isOnlineAvailable;
+          if (mode === "offline") return s.isOfflineAvailable;
+          return s.isOnlineAvailable || s.isOfflineAvailable;
+        })
+        .map(s => ({
+          time: s.timeSlot,
+          isOnlineAvailable: s.isOnlineAvailable && !bookedSlots.includes(s.timeSlot),
+          isOfflineAvailable: s.isOfflineAvailable && !bookedSlots.includes(s.timeSlot),
+          isBooked: bookedSlots.includes(s.timeSlot),
+        }));
+      
+      res.json({ slots: availableSlots, isBlocked: false });
+    } catch (error) {
+      console.error("Error fetching available slots:", error);
+      res.status(500).json({ error: "Failed to fetch available slots" });
+    }
+  });
+
+  // Create schedule setting (admin only)
+  app.post("/api/schedule-settings", async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertScheduleSettingSchema.parse(req.body);
+      const setting = await storage.createScheduleSetting(validatedData);
+      res.status(201).json(setting);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      console.error("Error creating schedule setting:", error);
+      res.status(500).json({ error: "Failed to create schedule setting" });
+    }
+  });
+
+  // Update schedule setting (admin only)
+  app.patch("/api/schedule-settings/:id", async (req: Request, res: Response) => {
+    try {
+      const setting = await storage.updateScheduleSetting(req.params.id, req.body);
+      if (!setting) {
+        return res.status(404).json({ error: "Schedule setting not found" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating schedule setting:", error);
+      res.status(500).json({ error: "Failed to update schedule setting" });
+    }
+  });
+
+  // Delete schedule setting (admin only)
+  app.delete("/api/schedule-settings/:id", async (req: Request, res: Response) => {
+    try {
+      const success = await storage.deleteScheduleSetting(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Schedule setting not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting schedule setting:", error);
+      res.status(500).json({ error: "Failed to delete schedule setting" });
+    }
+  });
+
+  // ============ BLOCKED DATES API ============
+
+  // Get all blocked dates (admin only)
+  app.get("/api/blocked-dates", async (req: Request, res: Response) => {
+    try {
+      const blockedDates = await storage.getBlockedDates();
+      res.json(blockedDates);
+    } catch (error) {
+      console.error("Error fetching blocked dates:", error);
+      res.status(500).json({ error: "Failed to fetch blocked dates" });
+    }
+  });
+
+  // Create blocked date (admin only)
+  app.post("/api/blocked-dates", async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertBlockedDateSchema.parse(req.body);
+      const blockedDate = await storage.createBlockedDate(validatedData);
+      res.status(201).json(blockedDate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      console.error("Error creating blocked date:", error);
+      res.status(500).json({ error: "Failed to create blocked date" });
+    }
+  });
+
+  // Delete blocked date (admin only)
+  app.delete("/api/blocked-dates/:id", async (req: Request, res: Response) => {
+    try {
+      const success = await storage.deleteBlockedDate(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Blocked date not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting blocked date:", error);
+      res.status(500).json({ error: "Failed to delete blocked date" });
     }
   });
 
