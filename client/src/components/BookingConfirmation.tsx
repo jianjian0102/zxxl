@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Calendar, Clock, MapPin, Phone, ArrowLeft } from "lucide-react";
+import { CheckCircle, Calendar, Clock, MapPin, ArrowLeft, History } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -12,7 +12,6 @@ interface BookingConfirmationProps {
     consultationType: "regular" | "welfare";
     name: string;
     consultationMode: "online" | "offline";
-    contactPhone: string;
   };
 }
 
@@ -45,31 +44,32 @@ export default function BookingConfirmation({ bookingDetails }: BookingConfirmat
                 <MapPin className="h-4 w-4" />
                 <span>方式：{bookingDetails.consultationMode === "online" ? "线上咨询" : "线下咨询"}</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>联系电话：{bookingDetails.contactPhone}</span>
-              </div>
             </div>
           </div>
 
           <div className="rounded-lg border p-4 space-y-2">
             <h3 className="font-medium">温馨提示</h3>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• 咨询师将在24小时内通过电话或短信确认您的预约</li>
+              <li>• 咨询师将在24小时内确认您的预约并通过邮箱联系您；线上咨询将通过视频方式进行，请确保网络稳定、环境保密</li>
               <li>• 如需更改预约时间，请提前24小时联系</li>
-              <li>• 线上咨询将通过视频方式进行，请确保网络稳定</li>
               <li>• 线下咨询地址将在确认预约后告知</li>
             </ul>
           </div>
 
-          <div className="flex gap-4 pt-4">
-            <Link href="/" className="flex-1">
+          <div className="flex flex-wrap gap-4 pt-4">
+            <Link href="/" className="flex-1 min-w-[140px]">
               <Button variant="outline" className="w-full" data-testid="button-back-home">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回首页
               </Button>
             </Link>
-            <Link href="/messages" className="flex-1">
+            <Link href="/appointments" className="flex-1 min-w-[140px]">
+              <Button variant="outline" className="w-full" data-testid="button-view-history">
+                <History className="mr-2 h-4 w-4" />
+                查看预约
+              </Button>
+            </Link>
+            <Link href="/messages" className="flex-1 min-w-[140px]">
               <Button className="w-full" data-testid="button-go-messages">
                 发送留言
               </Button>

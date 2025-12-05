@@ -89,6 +89,89 @@ export async function registerRoutes(
     }
   });
 
+  // Get appointments by email (for visitor history lookup)
+  app.get("/api/appointments/by-email/:email", async (req: Request, res: Response) => {
+    try {
+      const appointments = await storage.getAppointmentsByEmail(decodeURIComponent(req.params.email));
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching appointments by email:", error);
+      res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
+  // Update appointment (for modifying date/time)
+  app.patch("/api/appointments/:id", async (req: Request, res: Response) => {
+    try {
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Check modification deadline: 11:00 AM on the day before
+      const appointmentDate = new Date(appointment.appointmentDate);
+      const deadline = new Date(appointmentDate);
+      deadline.setDate(deadline.getDate() - 1);
+      deadline.setHours(11, 0, 0, 0);
+      
+      if (new Date() > deadline) {
+        return res.status(403).json({ 
+          error: "Modification deadline passed",
+          message: "修改截止时间已过（咨询前一天11:00前）"
+        });
+      }
+      
+      // If changing date/time, check for conflicts
+      const newDate = req.body.appointmentDate || appointment.appointmentDate;
+      const newTime = req.body.appointmentTime || appointment.appointmentTime;
+      
+      if (newDate !== appointment.appointmentDate || newTime !== appointment.appointmentTime) {
+        const isAvailable = await storage.checkTimeSlotAvailable(newDate, newTime, req.params.id);
+        if (!isAvailable) {
+          return res.status(409).json({ 
+            error: "Time slot conflict",
+            message: "该时间段已被预约，请选择其他时间"
+          });
+        }
+      }
+      
+      const updated = await storage.updateAppointment(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      res.status(500).json({ error: "Failed to update appointment" });
+    }
+  });
+
+  // Cancel appointment
+  app.post("/api/appointments/:id/cancel", async (req: Request, res: Response) => {
+    try {
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Check cancellation deadline: 11:00 AM on the day before
+      const appointmentDate = new Date(appointment.appointmentDate);
+      const deadline = new Date(appointmentDate);
+      deadline.setDate(deadline.getDate() - 1);
+      deadline.setHours(11, 0, 0, 0);
+      
+      if (new Date() > deadline) {
+        return res.status(403).json({ 
+          error: "Cancellation deadline passed",
+          message: "取消截止时间已过（咨询前一天11:00前）"
+        });
+      }
+      
+      const updated = await storage.updateAppointmentStatus(req.params.id, "cancelled");
+      res.json(updated);
+    } catch (error) {
+      console.error("Error cancelling appointment:", error);
+      res.status(500).json({ error: "Failed to cancel appointment" });
+    }
+  });
+
   // Get booked slots for a date (for conflict detection)
   app.get("/api/appointments/slots/:date", async (req: Request, res: Response) => {
     try {

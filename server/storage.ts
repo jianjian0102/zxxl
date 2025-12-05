@@ -18,9 +18,11 @@ export interface IStorage {
   // Appointments
   getAppointments(): Promise<Appointment[]>;
   getAppointment(id: string): Promise<Appointment | undefined>;
+  getAppointmentsByEmail(email: string): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointment(id: string, data: Partial<InsertAppointment>): Promise<Appointment | undefined>;
   updateAppointmentStatus(id: string, status: "pending" | "confirmed" | "cancelled" | "completed"): Promise<Appointment | undefined>;
-  checkTimeSlotAvailable(date: string, time: string): Promise<boolean>;
+  checkTimeSlotAvailable(date: string, time: string, excludeAppointmentId?: string): Promise<boolean>;
   getBookedSlots(date: string): Promise<string[]>;
 
   // Announcements
@@ -67,9 +69,26 @@ export class DatabaseStorage implements IStorage {
     return appointment || undefined;
   }
 
+  async getAppointmentsByEmail(email: string): Promise<Appointment[]> {
+    return db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.contactEmail, email))
+      .orderBy(desc(appointments.appointmentDate), desc(appointments.appointmentTime));
+  }
+
   async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
     const [created] = await db.insert(appointments).values(appointment).returning();
     return created;
+  }
+
+  async updateAppointment(id: string, data: Partial<InsertAppointment>): Promise<Appointment | undefined> {
+    const [updated] = await db
+      .update(appointments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async updateAppointmentStatus(id: string, status: "pending" | "confirmed" | "cancelled" | "completed"): Promise<Appointment | undefined> {
@@ -81,20 +100,24 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async checkTimeSlotAvailable(date: string, time: string): Promise<boolean> {
+  async checkTimeSlotAvailable(date: string, time: string, excludeAppointmentId?: string): Promise<boolean> {
+    const conditions = [
+      eq(appointments.appointmentDate, date),
+      eq(appointments.appointmentTime, time),
+      or(
+        eq(appointments.status, "pending"),
+        eq(appointments.status, "confirmed")
+      )
+    ];
+    
     const existing = await db
       .select()
       .from(appointments)
-      .where(
-        and(
-          eq(appointments.appointmentDate, date),
-          eq(appointments.appointmentTime, time),
-          or(
-            eq(appointments.status, "pending"),
-            eq(appointments.status, "confirmed")
-          )
-        )
-      );
+      .where(and(...conditions));
+    
+    if (excludeAppointmentId) {
+      return existing.filter(a => a.id !== excludeAppointmentId).length === 0;
+    }
     return existing.length === 0;
   }
 

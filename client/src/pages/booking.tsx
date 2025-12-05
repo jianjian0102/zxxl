@@ -464,7 +464,6 @@ export default function BookingPage() {
                   consultationType: consultationType!,
                   name: formData.name,
                   consultationMode: consultationMode!,
-                  contactPhone: formData.contactPhone,
                 }}
               />
             )}
