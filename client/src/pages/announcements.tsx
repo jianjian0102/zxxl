@@ -1,12 +1,7 @@
-import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AnnouncementList from "@/components/AnnouncementList";
 import Footer from "@/components/Footer";
 
 export default function AnnouncementsPage() {
-  // todo: remove mock functionality - check auth from API
-  const [isAdmin, setIsAdmin] = useState(false);
-
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 py-8">
@@ -21,18 +16,7 @@ export default function AnnouncementsPage() {
               </p>
             </div>
 
-            <Tabs defaultValue="visitor" className="mb-6">
-              <TabsList className="grid w-full max-w-[300px] grid-cols-2">
-                <TabsTrigger value="visitor" onClick={() => setIsAdmin(false)} data-testid="tab-visitor">
-                  访客视图
-                </TabsTrigger>
-                <TabsTrigger value="admin" onClick={() => setIsAdmin(true)} data-testid="tab-admin">
-                  管理员视图
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <AnnouncementList isAdmin={isAdmin} />
+            <AnnouncementList isAdmin={false} />
           </div>
         </div>
       </main>

@@ -1,12 +1,7 @@
-import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MessageCenter from "@/components/MessageCenter";
 import Footer from "@/components/Footer";
 
 export default function MessagesPage() {
-  // todo: remove mock functionality - check auth from API
-  const [isAdmin, setIsAdmin] = useState(false);
-
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 py-8">
@@ -21,18 +16,7 @@ export default function MessagesPage() {
               </p>
             </div>
 
-            <Tabs defaultValue="visitor" className="mb-6">
-              <TabsList className="grid w-full max-w-[300px] grid-cols-2">
-                <TabsTrigger value="visitor" onClick={() => setIsAdmin(false)} data-testid="tab-visitor-msg">
-                  来访者视图
-                </TabsTrigger>
-                <TabsTrigger value="admin" onClick={() => setIsAdmin(true)} data-testid="tab-admin-msg">
-                  咨询师视图
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            <MessageCenter isAdmin={isAdmin} />
+            <MessageCenter isAdmin={false} />
           </div>
         </div>
       </main>
