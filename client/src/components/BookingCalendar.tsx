@@ -8,6 +8,18 @@ import { Clock, MapPin, Video, Loader2 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { zhCN } from "date-fns/locale";
 
+interface AvailableSlot {
+  time: string;
+  isOnlineAvailable: boolean;
+  isOfflineAvailable: boolean;
+  isBooked: boolean;
+}
+
+interface ScheduleResponse {
+  slots: AvailableSlot[];
+  isBlocked: boolean;
+}
+
 interface TimeSlot {
   time: string;
   available: boolean;
@@ -19,31 +31,47 @@ interface BookingCalendarProps {
   onSelectSlot: (date: Date, time: string) => void;
 }
 
-const ONLINE_TIME_SLOTS = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
-const OFFLINE_TIME_SLOTS = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
-
 export default function BookingCalendar({ consultationType, consultationMode, onSelectSlot }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   const dateString = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
 
-  const { data: bookedData, isLoading } = useQuery<{ bookedSlots: string[] }>({
-    queryKey: ["/api/appointments/slots", dateString],
+  const { data: scheduleData, isLoading } = useQuery<ScheduleResponse>({
+    queryKey: ["/api/schedule/available", dateString],
     enabled: !!dateString,
   });
 
   const getAvailableSlots = (): TimeSlot[] => {
-    if (!selectedDate) return [];
-    const dayOfWeek = selectedDate.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) return [];
+    if (!selectedDate || !scheduleData) return [];
+    if (scheduleData.isBlocked) return [];
     
-    const bookedSlots = bookedData?.bookedSlots || [];
-    const availableTimeSlots = consultationMode === "online" ? ONLINE_TIME_SLOTS : OFFLINE_TIME_SLOTS;
-    return availableTimeSlots.map((time) => ({
-      time,
-      available: !bookedSlots.includes(time),
-    }));
+    return scheduleData.slots
+      .filter((slot) => {
+        if (consultationMode === "online") return slot.isOnlineAvailable && !slot.isBooked;
+        if (consultationMode === "offline") return slot.isOfflineAvailable && !slot.isBooked;
+        return false;
+      })
+      .map((slot) => ({
+        time: slot.time,
+        available: true,
+      }));
+  };
+  
+  const getAllSlots = (): TimeSlot[] => {
+    if (!selectedDate || !scheduleData) return [];
+    if (scheduleData.isBlocked) return [];
+    
+    return scheduleData.slots
+      .filter((slot) => {
+        if (consultationMode === "online") return slot.isOnlineAvailable;
+        if (consultationMode === "offline") return slot.isOfflineAvailable;
+        return false;
+      })
+      .map((slot) => ({
+        time: slot.time,
+        available: !slot.isBooked,
+      }));
   };
 
   const today = new Date();
@@ -53,10 +81,10 @@ export default function BookingCalendar({ consultationType, consultationMode, on
   const disabledDays = (date: Date) => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
-    return d < today || d > maxDate || date.getDay() === 0 || date.getDay() === 6;
+    return d < today || d > maxDate;
   };
 
-  const timeSlots = getAvailableSlots();
+  const timeSlots = getAllSlots();
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
@@ -71,7 +99,7 @@ export default function BookingCalendar({ consultationType, consultationMode, on
         <CardHeader>
           <CardTitle className="text-lg">选择日期</CardTitle>
           <CardDescription>
-            可预约未来30天内的时间（周末休息）
+            可预约未来30天内的时间
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +157,9 @@ export default function BookingCalendar({ consultationType, consultationMode, on
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                当日无可用时间段
+                {scheduleData?.isBlocked 
+                  ? "当日不开放预约" 
+                  : "当日无可用时间段"}
               </div>
             )
           ) : (
