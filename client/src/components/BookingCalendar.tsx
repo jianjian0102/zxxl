@@ -15,12 +15,14 @@ interface TimeSlot {
 
 interface BookingCalendarProps {
   consultationType: "regular" | "welfare";
+  consultationMode: "online" | "offline";
   onSelectSlot: (date: Date, time: string) => void;
 }
 
-const ALL_TIME_SLOTS = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
+const ONLINE_TIME_SLOTS = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
+const OFFLINE_TIME_SLOTS = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
 
-export default function BookingCalendar({ consultationType, onSelectSlot }: BookingCalendarProps) {
+export default function BookingCalendar({ consultationType, consultationMode, onSelectSlot }: BookingCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
@@ -37,7 +39,8 @@ export default function BookingCalendar({ consultationType, onSelectSlot }: Book
     if (dayOfWeek === 0 || dayOfWeek === 6) return [];
     
     const bookedSlots = bookedData?.bookedSlots || [];
-    return ALL_TIME_SLOTS.map((time) => ({
+    const availableTimeSlots = consultationMode === "online" ? ONLINE_TIME_SLOTS : OFFLINE_TIME_SLOTS;
+    return availableTimeSlots.map((time) => ({
       time,
       available: !bookedSlots.includes(time),
     }));
@@ -144,17 +147,16 @@ export default function BookingCalendar({ consultationType, onSelectSlot }: Book
                   {format(selectedDate, "yyyy年M月d日", { locale: zhCN })} {selectedTime}
                 </div>
                 <div className="flex items-center gap-2">
-                  {consultationType === "regular" ? (
-                    <>
-                      <MapPin className="h-4 w-4" />
-                      <span>一般咨询 · ¥400/50分钟</span>
-                    </>
+                  {consultationMode === "online" ? (
+                    <Video className="h-4 w-4" />
                   ) : (
-                    <>
-                      <Video className="h-4 w-4" />
-                      <span>公益低价咨询 · ¥100/50分钟</span>
-                    </>
+                    <MapPin className="h-4 w-4" />
                   )}
+                  <span>
+                    {consultationType === "regular" ? "一般咨询" : "公益低价咨询"} · 
+                    {consultationMode === "online" ? "线上" : "线下"} · 
+                    {consultationType === "regular" ? "¥300" : "¥100"}/50分钟
+                  </span>
                 </div>
               </div>
             </div>

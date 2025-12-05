@@ -34,7 +34,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Shield, Loader2 } from "lucide-react";
+import { FileText, Shield, Loader2, Upload } from "lucide-react";
 
 const concernTopics = [
   "自我探索",
@@ -48,33 +48,54 @@ const concernTopics = [
   "其他",
 ] as const;
 
-const intakeFormSchema = z.object({
-  name: z.string().min(2, "请输入姓名"),
-  gender: z.enum(["male", "female", "other"], { required_error: "请选择性别" }),
-  birthDate: z.string().min(1, "请输入出生日期"),
-  occupation: z.string().min(1, "请输入职业"),
-  hobbies: z.string().optional(),
-  consultationMode: z.enum(["online", "offline"], { required_error: "请选择咨询方式" }),
-  previousCounseling: z.enum(["yes", "no"], { required_error: "请选择" }),
-  diagnosedCondition: z.enum(["yes", "no"], { required_error: "请选择" }),
-  currentMedication: z.string().optional(),
-  concernTopics: z.array(z.string()).min(1, "请至少选择一个关心主题"),
-  detailedDescription: z.string().min(20, "请详细说明您的情况（至少20字）"),
-  contactPhone: z.string().min(11, "请输入有效的手机号码"),
-  contactEmail: z.string().email("请输入有效的邮箱地址").optional().or(z.literal("")),
-  dataCollectionConsent: z.boolean().refine((val) => val === true, "请同意信息收集条款"),
-  confidentialityConsent: z.boolean().refine((val) => val === true, "请同意保密协议"),
-});
+const createIntakeFormSchema = (isWelfare: boolean) => {
+  const baseSchema = z.object({
+    name: z.string().min(2, "请输入姓名"),
+    gender: z.enum(["male", "female", "other"], { required_error: "请选择性别" }),
+    birthDate: z.string().min(1, "请输入出生日期"),
+    occupation: z.string().min(1, "请输入职业"),
+    hobbies: z.string().optional(),
+    previousCounseling: z.enum(["yes", "no"], { required_error: "请选择" }),
+    diagnosedCondition: z.enum(["yes", "no"], { required_error: "请选择" }),
+    currentMedication: z.string().optional(),
+    concernTopics: z.array(z.string()).min(1, "请至少选择一个关心主题"),
+    detailedDescription: z.string().min(20, "请详细说明您的情况（至少20字）"),
+    contactPhone: z.string().min(11, "请输入有效的手机号码"),
+    contactEmail: z.string().email("请输入有效的邮箱地址").optional().or(z.literal("")),
+    dataCollectionConsent: z.boolean().refine((val) => val === true, "请同意信息收集条款"),
+    confidentialityConsent: z.boolean().refine((val) => val === true, "请同意保密协议"),
+    welfareProofDescription: z.string().optional(),
+  });
 
-type IntakeFormValues = z.infer<typeof intakeFormSchema>;
+  if (isWelfare) {
+    return baseSchema.extend({
+      welfareProofDescription: z.string().min(1, "请描述您的证明材料"),
+    });
+  }
+
+  return baseSchema;
+};
+
+type IntakeFormValues = z.infer<ReturnType<typeof createIntakeFormSchema>>;
 
 interface IntakeFormProps {
-  onSubmit: (data: IntakeFormValues) => void;
+  consultationType: "regular" | "welfare";
+  consultationMode: "online" | "offline";
+  onSubmit: (data: IntakeFormValues & { consultationMode: string }) => void;
   onBack: () => void;
   isSubmitting?: boolean;
 }
 
-export default function IntakeForm({ onSubmit, onBack, isSubmitting = false }: IntakeFormProps) {
+export default function IntakeForm({ 
+  consultationType, 
+  consultationMode,
+  onSubmit, 
+  onBack, 
+  isSubmitting = false 
+}: IntakeFormProps) {
+  const isWelfare = consultationType === "welfare";
+  const intakeFormSchema = createIntakeFormSchema(isWelfare);
+
   const form = useForm<IntakeFormValues>({
     resolver: zodResolver(intakeFormSchema),
     defaultValues: {
@@ -89,12 +110,12 @@ export default function IntakeForm({ onSubmit, onBack, isSubmitting = false }: I
       contactEmail: "",
       dataCollectionConsent: false,
       confidentialityConsent: false,
+      welfareProofDescription: "",
     },
   });
 
   const handleSubmit = (data: IntakeFormValues) => {
-    console.log("Form submitted:", data);
-    onSubmit(data);
+    onSubmit({ ...data, consultationMode });
   };
 
   return (
@@ -192,32 +213,17 @@ export default function IntakeForm({ onSubmit, onBack, isSubmitting = false }: I
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="consultationMode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>咨询方式 *</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex gap-6"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="online" id="online" data-testid="radio-online" />
-                          <Label htmlFor="online">线上咨询</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="offline" id="offline" data-testid="radio-offline" />
-                          <Label htmlFor="offline">线下咨询</Label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">咨询方式：</span>
+                  <span className="font-medium">
+                    {consultationMode === "online" ? "线上咨询" : "线下咨询"}
+                  </span>
+                  {isWelfare && (
+                    <span className="text-xs text-muted-foreground">（公益咨询仅支持线上）</span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-6">
@@ -348,6 +354,43 @@ export default function IntakeForm({ onSubmit, onBack, isSubmitting = false }: I
                 )}
               />
             </div>
+
+            {isWelfare && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium border-b pb-2">公益咨询资格证明</h3>
+
+                <FormField
+                  control={form.control}
+                  name="welfareProofDescription"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>证明材料说明 *</FormLabel>
+                      <FormDescription>
+                        请描述您将提供的证明材料（如学生证、低保证明等），提交申请后咨询师会与您联系确认
+                      </FormDescription>
+                      <FormControl>
+                        <Textarea
+                          placeholder="例如：我是XX大学在读学生，可以提供学生证照片作为证明..."
+                          className="min-h-[100px]"
+                          {...field}
+                          data-testid="textarea-welfare-proof"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <Upload className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <p>
+                      提交申请后，咨询师会通过您留下的联系方式与您联系，届时请准备好相关证明材料的照片或扫描件。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-6">
               <h3 className="text-lg font-medium border-b pb-2">联系方式</h3>

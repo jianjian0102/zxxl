@@ -5,7 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Sparkles, Heart, Loader2 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Sparkles, Heart, Loader2, Monitor, MapPin } from "lucide-react";
 import BookingCalendar from "@/components/BookingCalendar";
 import IntakeForm from "@/components/IntakeForm";
 import BookingConfirmation from "@/components/BookingConfirmation";
@@ -14,8 +26,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-type BookingStep = "select-type" | "select-time" | "fill-form" | "confirmation";
+type BookingStep = "select-type" | "select-mode" | "welfare-confirm" | "select-time" | "fill-form" | "confirmation";
 type ConsultationType = "regular" | "welfare";
+type ConsultationMode = "online" | "offline";
 
 export default function BookingPage() {
   const search = useSearch();
@@ -23,20 +36,51 @@ export default function BookingPage() {
   const initialType = params.get("type") as ConsultationType | null;
   const { toast } = useToast();
   
-  const [step, setStep] = useState<BookingStep>(initialType ? "select-time" : "select-type");
+  const [step, setStep] = useState<BookingStep>(initialType ? (initialType === "welfare" ? "welfare-confirm" : "select-mode") : "select-type");
   const [consultationType, setConsultationType] = useState<ConsultationType | null>(initialType);
+  const [consultationMode, setConsultationMode] = useState<ConsultationMode | null>(initialType === "welfare" ? "online" : null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>(null);
+  const [showWelfareConfirm, setShowWelfareConfirm] = useState(initialType === "welfare");
 
-  const stepProgress = {
-    "select-type": 25,
-    "select-time": 50,
-    "fill-form": 75,
-    "confirmation": 100,
+  const getStepProgress = () => {
+    if (consultationType === "welfare") {
+      switch (step) {
+        case "select-type": return 20;
+        case "welfare-confirm": return 40;
+        case "select-time": return 60;
+        case "fill-form": return 80;
+        case "confirmation": return 100;
+        default: return 20;
+      }
+    } else {
+      switch (step) {
+        case "select-type": return 20;
+        case "select-mode": return 40;
+        case "select-time": return 60;
+        case "fill-form": return 80;
+        case "confirmation": return 100;
+        default: return 20;
+      }
+    }
   };
 
-  const stepLabels = ["选择类型", "选择时间", "填写表单", "完成"];
+  const getStepLabels = () => {
+    if (consultationType === "welfare") {
+      return ["选择类型", "确认须知", "选择时间", "填写表单", "完成"];
+    }
+    return ["选择类型", "选择方式", "选择时间", "填写表单", "完成"];
+  };
+
+  const getCurrentStepIndex = () => {
+    if (consultationType === "welfare") {
+      const steps = ["select-type", "welfare-confirm", "select-time", "fill-form", "confirmation"];
+      return steps.indexOf(step);
+    }
+    const steps = ["select-type", "select-mode", "select-time", "fill-form", "confirmation"];
+    return steps.indexOf(step);
+  };
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -65,7 +109,35 @@ export default function BookingPage() {
 
   const handleSelectType = (type: ConsultationType) => {
     setConsultationType(type);
+    if (type === "welfare") {
+      setConsultationMode("online");
+      setShowWelfareConfirm(true);
+      setStep("welfare-confirm");
+    } else {
+      setStep("select-mode");
+    }
+  };
+
+  const handleSelectMode = (mode: ConsultationMode) => {
+    setConsultationMode(mode);
+  };
+
+  const handleContinueToCalendar = () => {
+    if (consultationMode) {
+      setStep("select-time");
+    }
+  };
+
+  const handleWelfareConfirm = () => {
+    setShowWelfareConfirm(false);
     setStep("select-time");
+  };
+
+  const handleWelfareCancel = () => {
+    setShowWelfareConfirm(false);
+    setStep("select-type");
+    setConsultationType(null);
+    setConsultationMode(null);
   };
 
   const handleSelectSlot = (date: Date, time: string) => {
@@ -80,13 +152,13 @@ export default function BookingPage() {
   };
 
   const handleFormSubmit = async (data: any) => {
-    if (!selectedDate || !selectedTime || !consultationType) return;
+    if (!selectedDate || !selectedTime || !consultationType || !consultationMode) return;
     
     const appointmentData = {
       appointmentDate: format(selectedDate, "yyyy-MM-dd"),
       appointmentTime: selectedTime,
       consultationType: consultationType,
-      consultationMode: data.consultationMode,
+      consultationMode: consultationMode,
       name: data.name,
       gender: data.gender,
       birthDate: data.birthDate,
@@ -104,15 +176,28 @@ export default function BookingPage() {
       situationDescription: data.detailedDescription,
       dataCollectionConsent: data.dataCollectionConsent,
       confidentialityConsent: data.confidentialityConsent,
+      welfareProofDescription: data.welfareProofDescription || null,
     };
     
     createAppointmentMutation.mutate(appointmentData);
   };
 
   const handleBack = () => {
-    if (step === "select-time") {
+    if (step === "select-mode") {
       setStep("select-type");
       setConsultationType(null);
+      setConsultationMode(null);
+    } else if (step === "welfare-confirm") {
+      setStep("select-type");
+      setConsultationType(null);
+      setConsultationMode(null);
+    } else if (step === "select-time") {
+      if (consultationType === "welfare") {
+        setStep("welfare-confirm");
+        setShowWelfareConfirm(true);
+      } else {
+        setStep("select-mode");
+      }
     } else if (step === "fill-form") {
       setStep("select-time");
     }
@@ -134,11 +219,11 @@ export default function BookingPage() {
 
             <div className="mb-8">
               <div className="flex justify-between mb-2 text-sm">
-                {stepLabels.map((label, index) => (
+                {getStepLabels().map((label, index) => (
                   <span
                     key={index}
                     className={`${
-                      index <= Object.keys(stepProgress).indexOf(step)
+                      index <= getCurrentStepIndex()
                         ? "text-primary font-medium"
                         : "text-muted-foreground"
                     }`}
@@ -147,7 +232,7 @@ export default function BookingPage() {
                   </span>
                 ))}
               </div>
-              <Progress value={stepProgress[step]} className="h-2" />
+              <Progress value={getStepProgress()} className="h-2" />
             </div>
 
             {step === "select-type" && (
@@ -204,21 +289,129 @@ export default function BookingPage() {
               </div>
             )}
 
-            {step === "select-time" && consultationType && (
+            {step === "select-mode" && consultationType === "regular" && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-type">
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
                   <div>
+                    <Badge variant="secondary">一般咨询</Badge>
+                  </div>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>选择咨询方式</CardTitle>
+                    <CardDescription>
+                      请选择您希望的咨询方式，线上和线下的可预约时间可能有所不同
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <RadioGroup
+                      value={consultationMode || ""}
+                      onValueChange={(value) => handleSelectMode(value as ConsultationMode)}
+                      className="grid md:grid-cols-2 gap-4"
+                    >
+                      <div className="relative">
+                        <RadioGroupItem
+                          value="online"
+                          id="mode-online"
+                          className="peer sr-only"
+                          data-testid="radio-mode-online"
+                        />
+                        <Label
+                          htmlFor="mode-online"
+                          className="flex flex-col items-center gap-3 p-6 rounded-lg border-2 cursor-pointer transition-colors peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-muted/50"
+                        >
+                          <Monitor className="h-10 w-10 text-primary" />
+                          <div className="text-center">
+                            <div className="font-medium text-lg">线上咨询</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              通过视频进行咨询，时间更灵活
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+
+                      <div className="relative">
+                        <RadioGroupItem
+                          value="offline"
+                          id="mode-offline"
+                          className="peer sr-only"
+                          data-testid="radio-mode-offline"
+                        />
+                        <Label
+                          htmlFor="mode-offline"
+                          className="flex flex-col items-center gap-3 p-6 rounded-lg border-2 cursor-pointer transition-colors peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-muted/50"
+                        >
+                          <MapPin className="h-10 w-10 text-primary" />
+                          <div className="text-center">
+                            <div className="font-medium text-lg">线下咨询</div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              面对面咨询，更加私密舒适
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleContinueToCalendar}
+                        disabled={!consultationMode}
+                        data-testid="button-continue-calendar"
+                      >
+                        继续选择时间
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {step === "welfare-confirm" && (
+              <AlertDialog open={showWelfareConfirm} onOpenChange={setShowWelfareConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>公益低价咨询须知</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>公益低价咨询只能通过<strong>线上方式</strong>进行。</p>
+                      <p>申请时需要提供学生证或其他经济困难相关证明。</p>
+                      <p>是否希望继续申请？</p>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={handleWelfareCancel} data-testid="button-welfare-cancel">
+                      返回选择
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={handleWelfareConfirm} data-testid="button-welfare-confirm">
+                      继续申请
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {step === "select-time" && consultationType && consultationMode && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-mode">
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="secondary">
                       {consultationType === "regular" ? "一般咨询" : "公益低价咨询"}
+                    </Badge>
+                    <Badge variant="outline">
+                      {consultationMode === "online" ? "线上" : "线下"}
                     </Badge>
                   </div>
                 </div>
 
                 <BookingCalendar
                   consultationType={consultationType}
+                  consultationMode={consultationMode}
                   onSelectSlot={handleSelectSlot}
                 />
 
@@ -232,7 +425,7 @@ export default function BookingPage() {
               </div>
             )}
 
-            {step === "fill-form" && consultationType && (
+            {step === "fill-form" && consultationType && consultationMode && (
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="icon" onClick={handleBack} data-testid="button-back-calendar">
@@ -243,6 +436,9 @@ export default function BookingPage() {
                       {consultationType === "regular" ? "一般咨询" : "公益低价咨询"}
                     </Badge>
                     <Badge variant="outline">
+                      {consultationMode === "online" ? "线上" : "线下"}
+                    </Badge>
+                    <Badge variant="outline">
                       {selectedDate && selectedTime
                         ? `${selectedDate.getMonth() + 1}月${selectedDate.getDate()}日 ${selectedTime}`
                         : ""}
@@ -251,6 +447,8 @@ export default function BookingPage() {
                 </div>
 
                 <IntakeForm
+                  consultationType={consultationType}
+                  consultationMode={consultationMode}
                   onSubmit={handleFormSubmit}
                   onBack={handleBack}
                   isSubmitting={createAppointmentMutation.isPending}
@@ -265,7 +463,7 @@ export default function BookingPage() {
                   time: selectedTime,
                   consultationType: consultationType!,
                   name: formData.name,
-                  consultationMode: formData.consultationMode,
+                  consultationMode: consultationMode!,
                   contactPhone: formData.contactPhone,
                 }}
               />
