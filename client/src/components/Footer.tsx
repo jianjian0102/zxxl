@@ -1,4 +1,4 @@
-import { Heart, Mail, Clock } from "lucide-react";
+import { Heart } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -17,22 +17,19 @@ export default function Footer() {
           
           <div>
             <h3 className="font-medium mb-4">联系方式</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span>邮箱：jianhongyu0102@outlook.com</span>
-              </div>
+            <div className="text-sm text-muted-foreground">
+              <p>邮箱：jianhongyu0102@outlook.com</p>
             </div>
           </div>
           
           <div>
             <h3 className="font-medium mb-4">咨询时间</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <span>周一至周五：10:00 - 20:00</span>
-              </div>
+              <p>周一至周五：10:00 - 20:00</p>
               <p>周六、周日：休息</p>
+              <p className="text-xs mt-3">
+                * 如需预约别的时间请留言
+              </p>
             </div>
           </div>
         </div>

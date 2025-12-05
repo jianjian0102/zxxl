@@ -47,7 +47,7 @@ export default function ServiceCards() {
                     持续跟进支持
                   </li>
                 </ul>
-                <Link href="/booking?type=regular">
+                <Link href="/booking?type=regular" className="mt-4 block">
                   <Button className="w-full" data-testid="button-book-regular">
                     预约咨询
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -87,7 +87,7 @@ export default function ServiceCards() {
                     同等专业服务
                   </li>
                 </ul>
-                <Link href="/booking?type=welfare">
+                <Link href="/booking?type=welfare" className="mt-4 block">
                   <Button variant="outline" className="w-full" data-testid="button-book-welfare">
                     申请预约
                     <ArrowRight className="ml-2 h-4 w-4" />
