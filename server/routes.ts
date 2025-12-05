@@ -8,6 +8,7 @@ import {
   insertConversationSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -258,6 +259,36 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error resolving conversation:", error);
       res.status(500).json({ error: "Failed to resolve conversation" });
+    }
+  });
+
+  // ============ FILE UPLOAD API ============
+
+  // Get upload URL for welfare proof documents
+  app.post("/api/upload", async (req: Request, res: Response) => {
+    try {
+      const { filename, contentType } = req.body;
+      const objectStorageService = new ObjectStorageService();
+      const { uploadUrl, fileKey } = await objectStorageService.getObjectEntityUploadURL(filename);
+      res.json({ uploadUrl, fileKey });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ error: "Failed to get upload URL" });
+    }
+  });
+
+  // Serve uploaded files
+  app.get("/objects/:objectPath(*)", async (req: Request, res: Response) => {
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      return res.status(500).json({ error: "Failed to serve file" });
     }
   });
 

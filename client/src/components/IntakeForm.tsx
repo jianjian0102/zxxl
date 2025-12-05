@@ -28,13 +28,12 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Shield, Loader2, Upload } from "lucide-react";
+import { FileText, Shield, Loader2, Upload, X, CheckCircle2 } from "lucide-react";
 
 const concernTopics = [
   "自我探索",
@@ -60,16 +59,16 @@ const createIntakeFormSchema = (isWelfare: boolean) => {
     currentMedication: z.string().optional(),
     concernTopics: z.array(z.string()).min(1, "请至少选择一个关心主题"),
     detailedDescription: z.string().min(20, "请详细说明您的情况（至少20字）"),
-    contactPhone: z.string().min(11, "请输入有效的手机号码"),
-    contactEmail: z.string().email("请输入有效的邮箱地址").optional().or(z.literal("")),
+    contactEmail: z.string().email("请输入有效的邮箱地址"),
+    contactPhone: z.string().optional(),
     dataCollectionConsent: z.boolean().refine((val) => val === true, "请同意信息收集条款"),
     confidentialityConsent: z.boolean().refine((val) => val === true, "请同意保密协议"),
-    welfareProofDescription: z.string().optional(),
+    welfareProofFile: z.string().optional(),
   });
 
   if (isWelfare) {
     return baseSchema.extend({
-      welfareProofDescription: z.string().min(1, "请描述您的证明材料"),
+      welfareProofFile: z.string().min(1, "请上传证明材料"),
     });
   }
 
@@ -95,6 +94,8 @@ export default function IntakeForm({
 }: IntakeFormProps) {
   const isWelfare = consultationType === "welfare";
   const intakeFormSchema = createIntakeFormSchema(isWelfare);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<IntakeFormValues>({
     resolver: zodResolver(intakeFormSchema),
@@ -106,16 +107,68 @@ export default function IntakeForm({
       currentMedication: "",
       concernTopics: [],
       detailedDescription: "",
-      contactPhone: "",
       contactEmail: "",
+      contactPhone: "",
       dataCollectionConsent: false,
       confidentialityConsent: false,
-      welfareProofDescription: "",
+      welfareProofFile: "",
     },
   });
 
   const handleSubmit = (data: IntakeFormValues) => {
     onSubmit({ ...data, consultationMode });
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      form.setError("welfareProofFile", { message: "文件大小不能超过10MB" });
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      form.setError("welfareProofFile", { message: "只支持 JPG、PNG、GIF 或 PDF 格式" });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+
+      if (!response.ok) throw new Error('Failed to get upload URL');
+      
+      const { uploadUrl, fileKey } = await response.json();
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+
+      if (!uploadResponse.ok) throw new Error('Upload failed');
+
+      form.setValue("welfareProofFile", fileKey);
+      setUploadedFileName(file.name);
+      form.clearErrors("welfareProofFile");
+    } catch (error) {
+      console.error('Upload error:', error);
+      form.setError("welfareProofFile", { message: "上传失败，请重试" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    form.setValue("welfareProofFile", "");
+    setUploadedFileName(null);
   };
 
   return (
@@ -361,34 +414,62 @@ export default function IntakeForm({
 
                 <FormField
                   control={form.control}
-                  name="welfareProofDescription"
+                  name="welfareProofFile"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>证明材料说明 *</FormLabel>
+                      <FormLabel>上传证明材料 *</FormLabel>
                       <FormDescription>
-                        请描述您将提供的证明材料（如学生证、低保证明等），提交申请后咨询师会与您联系确认
+                        请上传学生证、低保证明或其他经济困难相关证明（支持 JPG、PNG、GIF、PDF，最大10MB）
                       </FormDescription>
                       <FormControl>
-                        <Textarea
-                          placeholder="例如：我是XX大学在读学生，可以提供学生证照片作为证明..."
-                          className="min-h-[100px]"
-                          {...field}
-                          data-testid="textarea-welfare-proof"
-                        />
+                        <div className="space-y-3">
+                          {!uploadedFileName ? (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/gif,application/pdf"
+                                onChange={handleFileUpload}
+                                disabled={isUploading}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                                data-testid="input-welfare-proof"
+                              />
+                              <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded-lg hover:border-primary/50 transition-colors">
+                                {isUploading ? (
+                                  <>
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground">上传中...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-5 w-5 text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground">点击或拖拽文件到此处上传</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <span className="text-sm">{uploadedFileName}</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleRemoveFile}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                          <input type="hidden" {...field} />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <Upload className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <p>
-                      提交申请后，咨询师会通过您留下的联系方式与您联系，届时请准备好相关证明材料的照片或扫描件。
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -398,12 +479,12 @@ export default function IntakeForm({
               <div className="grid md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="contactPhone"
+                  name="contactEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>手机号码 *</FormLabel>
+                      <FormLabel>邮箱地址 *</FormLabel>
                       <FormControl>
-                        <Input placeholder="请输入手机号码" {...field} data-testid="input-phone" />
+                        <Input placeholder="请输入邮箱地址" {...field} data-testid="input-email" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -412,12 +493,12 @@ export default function IntakeForm({
 
                 <FormField
                   control={form.control}
-                  name="contactEmail"
+                  name="contactPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>邮箱地址</FormLabel>
+                      <FormLabel>手机号码</FormLabel>
                       <FormControl>
-                        <Input placeholder="请输入邮箱（选填）" {...field} data-testid="input-email" />
+                        <Input placeholder="请输入手机号码（选填）" {...field} data-testid="input-phone" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -433,7 +514,7 @@ export default function IntakeForm({
                 control={form.control}
                 name="dataCollectionConsent"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
@@ -441,13 +522,13 @@ export default function IntakeForm({
                         data-testid="checkbox-data-consent"
                       />
                     </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="cursor-pointer">
+                    <div className="flex items-center gap-1 leading-none">
+                      <FormLabel className="cursor-pointer font-normal">
                         我同意咨询师收集上述信息用于咨询服务 *
                       </FormLabel>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" className="h-auto px-1 py-0 text-primary text-sm">
+                          <Button variant="ghost" size="sm" className="h-auto px-1 py-0 text-primary">
                             <FileText className="mr-1 h-3 w-3" />
                             查看详情
                           </Button>
@@ -484,7 +565,7 @@ export default function IntakeForm({
                 control={form.control}
                 name="confidentialityConsent"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
@@ -492,13 +573,13 @@ export default function IntakeForm({
                         data-testid="checkbox-confidentiality"
                       />
                     </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="cursor-pointer">
+                    <div className="flex items-center gap-1 leading-none">
+                      <FormLabel className="cursor-pointer font-normal">
                         我已阅读并同意保密协议 *
                       </FormLabel>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="ghost" className="h-auto px-1 py-0 text-primary text-sm">
+                          <Button variant="ghost" size="sm" className="h-auto px-1 py-0 text-primary">
                             <Shield className="mr-1 h-3 w-3" />
                             查看保密协议
                           </Button>
