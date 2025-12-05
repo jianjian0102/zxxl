@@ -22,7 +22,7 @@ import BookingCalendar from "@/components/BookingCalendar";
 import IntakeForm from "@/components/IntakeForm";
 import BookingConfirmation from "@/components/BookingConfirmation";
 import Footer from "@/components/Footer";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -90,6 +90,8 @@ export default function BookingPage() {
     onSuccess: (result) => {
       setFormData(result);
       setStep("confirmation");
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule/available"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       toast({
         title: "预约成功",
         description: "您的预约申请已提交，咨询师将尽快确认",

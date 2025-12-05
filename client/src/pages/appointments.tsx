@@ -78,6 +78,7 @@ export default function AppointmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/appointments/by-email/${encodeURIComponent(searchedEmail)}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule/available"] });
       toast({
         title: "预约已取消",
         description: "您的预约已成功取消",

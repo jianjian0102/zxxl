@@ -151,7 +151,13 @@ export class DatabaseStorage implements IStorage {
           )
         )
       );
-    return booked.map(b => b.time);
+    return booked.map(b => {
+      const time = b.time;
+      if (time.length > 5 && time.includes(':')) {
+        return time.substring(0, 5);
+      }
+      return time;
+    });
   }
 
   // Announcements
