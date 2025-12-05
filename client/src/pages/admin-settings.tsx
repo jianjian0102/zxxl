@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Plus, Trash2, CalendarX, Settings, Megaphone, MessageSquare } from "lucide-react";
+import { Calendar, Clock, Plus, Trash2, CalendarX, Settings, Megaphone, MessageSquare, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -20,6 +21,31 @@ const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "
 
 export default function AdminSettingsPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  const { data: authData, isLoading: authLoading } = useQuery<{ isAdmin: boolean }>({
+    queryKey: ["/api/admin/me"],
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/logout");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/me"] });
+      toast({ title: "已登出" });
+      setLocation("/admin/login");
+    },
+    onError: () => {
+      toast({ title: "登出失败", variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (!authLoading && !authData?.isAdmin) {
+      setLocation("/admin/login");
+    }
+  }, [authLoading, authData, setLocation]);
   const [newSlotDay, setNewSlotDay] = useState(1);
   const [newSlotTime, setNewSlotTime] = useState("10:00");
   const [newBlockedDate, setNewBlockedDate] = useState("");
@@ -132,7 +158,7 @@ export default function AdminSettingsPage() {
     createBlockedDateMutation.mutate({ date: newBlockedDate, reason: newBlockedReason || undefined });
   };
 
-  if (loadingSettings || loadingBlocked) {
+  if (authLoading || loadingSettings || loadingBlocked) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex justify-center items-center min-h-[400px]">
@@ -142,12 +168,27 @@ export default function AdminSettingsPage() {
     );
   }
 
+  if (!authData?.isAdmin) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Settings className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">管理中心</h1>
+        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Settings className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold">管理中心</h1>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            data-testid="button-logout"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            {logoutMutation.isPending ? "登出中..." : "登出"}
+          </Button>
         </div>
         <p className="text-muted-foreground">
           管理咨询时间、公告和留言

@@ -11,6 +11,7 @@ import AnnouncementsPage from "@/pages/announcements";
 import MessagesPage from "@/pages/messages";
 import AppointmentsPage from "@/pages/appointments";
 import AdminSettingsPage from "@/pages/admin-settings";
+import AdminLoginPage from "@/pages/admin-login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/announcements" component={AnnouncementsPage} />
       <Route path="/messages" component={MessagesPage} />
       <Route path="/appointments" component={AppointmentsPage} />
+      <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/settings" component={AdminSettingsPage} />
       <Route component={NotFound} />
     </Switch>
