@@ -280,7 +280,7 @@ export default function BookingPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-baseline gap-2 mb-6">
-                      <span className="text-3xl font-semibold">¥100</span>
+                      <span className="text-3xl font-semibold">¥150</span>
                       <span className="text-muted-foreground">/ 50分钟</span>
                     </div>
                     <Button variant="outline" className="w-full">

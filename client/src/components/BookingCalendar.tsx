@@ -185,7 +185,7 @@ export default function BookingCalendar({ consultationType, consultationMode, on
                   <span>
                     {consultationType === "regular" ? "一般咨询" : "公益低价咨询"} · 
                     {consultationMode === "online" ? "线上" : "线下"} · 
-                    {consultationType === "regular" ? "¥300" : "¥100"}/50分钟
+                    {consultationType === "regular" ? "¥300" : "¥150"}/50分钟
                   </span>
                 </div>
               </div>
