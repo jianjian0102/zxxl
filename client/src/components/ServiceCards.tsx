@@ -30,7 +30,7 @@ export default function ServiceCards() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-semibold">¥400</span>
+                  <span className="text-3xl font-semibold">¥300</span>
                   <span className="text-muted-foreground">/ 50分钟</span>
                 </div>
                 <ul className="space-y-2 text-sm text-muted-foreground">
