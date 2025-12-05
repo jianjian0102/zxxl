@@ -167,8 +167,8 @@ export default function BookingPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-3xl font-semibold">¥400</span>
+                    <div className="flex items-baseline gap-2 mb-6">
+                      <span className="text-3xl font-semibold">¥300</span>
                       <span className="text-muted-foreground">/ 50分钟</span>
                     </div>
                     <Button className="w-full">
@@ -178,13 +178,10 @@ export default function BookingPage() {
                 </Card>
 
                 <Card
-                  className="cursor-pointer hover-elevate relative overflow-visible"
+                  className="cursor-pointer hover-elevate overflow-visible"
                   onClick={() => handleSelectType("welfare")}
                   data-testid="card-select-welfare"
                 >
-                  <Badge className="absolute -top-3 right-4" variant="secondary">
-                    公益优惠
-                  </Badge>
                   <CardHeader>
                     <div className="flex items-center gap-2 mb-2">
                       <Heart className="h-5 w-5 text-primary" />
@@ -195,7 +192,7 @@ export default function BookingPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-baseline gap-2 mb-4">
+                    <div className="flex items-baseline gap-2 mb-6">
                       <span className="text-3xl font-semibold">¥100</span>
                       <span className="text-muted-foreground">/ 50分钟</span>
                     </div>
