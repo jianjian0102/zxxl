@@ -27,7 +27,7 @@ export default function Header({ isDarkMode, toggleDarkMode }: HeaderProps) {
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
         <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo">
           <Heart className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold">心灵港湾</span>
+          <span className="text-xl font-semibold">秩序心理</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">

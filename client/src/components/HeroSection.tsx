@@ -12,18 +12,17 @@ export default function HeroSection() {
         <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
           <Avatar className="w-40 h-40 md:w-48 md:h-48 mb-6 ring-4 ring-primary/20">
             <AvatarImage src={counselorImage} alt="心理咨询师" />
-            <AvatarFallback className="text-4xl">李</AvatarFallback>
+            <AvatarFallback className="text-4xl">简</AvatarFallback>
           </Avatar>
           
           <h1 className="text-3xl md:text-4xl font-semibold mb-3" data-testid="text-hero-title">
-            李心怡
+            简宏宇
           </h1>
           <p className="text-lg text-muted-foreground mb-2" data-testid="text-hero-subtitle">
-            国家二级心理咨询师 | 认知行为治疗师
+            心理咨询博士在读｜青少年咨询师二级（韩国国家资格证）
           </p>
           <p className="text-muted-foreground mb-8 max-w-xl leading-relaxed" data-testid="text-hero-description">
-            拥有8年心理咨询经验，专注于情绪调节、人际关系、职业发展等领域。
-            致力于为每一位来访者提供安全、温暖、专业的心理支持。
+            拥有3年心理咨询师经验，以人本主义为核心的综合流派。专注于情绪调节、人际关系、职业发展等领域。希望帮助每一位来访者重新找到内在秩序。
           </p>
           
           <div className="flex flex-wrap justify-center gap-3 mb-12">
