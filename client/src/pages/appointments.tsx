@@ -72,8 +72,10 @@ export default function AppointmentsPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async (appointmentId: string) => {
-      const response = await apiRequest("POST", `/api/appointments/${appointmentId}/cancel`);
+    mutationFn: async ({ appointmentId, email }: { appointmentId: string; email: string }) => {
+      const response = await apiRequest("POST", `/api/appointments/${appointmentId}/cancel`, {
+        verifyEmail: email,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -114,7 +116,10 @@ export default function AppointmentsPage() {
 
   const confirmCancel = () => {
     if (selectedAppointment) {
-      cancelMutation.mutate(selectedAppointment.id);
+      cancelMutation.mutate({ 
+        appointmentId: selectedAppointment.id, 
+        email: searchedEmail 
+      });
     }
   };
 

@@ -93,11 +93,12 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (data: { conversationId: string; content: string; senderName: string; isFromAdmin: boolean }) => {
+    mutationFn: async (data: { conversationId: string; content: string; senderName: string; isFromAdmin: boolean; verifyEmail?: string }) => {
       const response = await apiRequest("POST", `/api/conversations/${data.conversationId}/messages`, {
         content: data.content,
         senderName: data.senderName,
-        isFromAdmin: data.isFromAdmin,
+        senderType: data.isFromAdmin ? "admin" : "visitor",
+        verifyEmail: data.verifyEmail,
       });
       return response.json();
     },
@@ -186,6 +187,7 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
       content: newMessage,
       senderName: isAdmin ? "咨询师" : conversationDetail?.visitorName || "来访者",
       isFromAdmin: isAdmin,
+      verifyEmail: isAdmin ? undefined : searchedEmail,
     });
   };
 

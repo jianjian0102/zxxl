@@ -70,8 +70,8 @@ export async function registerRoutes(
 
   // ============ APPOINTMENTS API ============
 
-  // Get all appointments (admin only in production)
-  app.get("/api/appointments", async (req: Request, res: Response) => {
+  // Get all appointments (admin only)
+  app.get("/api/appointments", requireAdmin, async (req: Request, res: Response) => {
     try {
       const appointments = await storage.getAppointments();
       res.json(appointments);
@@ -81,8 +81,8 @@ export async function registerRoutes(
     }
   });
 
-  // Get single appointment
-  app.get("/api/appointments/:id", async (req: Request, res: Response) => {
+  // Get single appointment (admin only)
+  app.get("/api/appointments/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
@@ -161,8 +161,8 @@ export async function registerRoutes(
     }
   });
 
-  // Update appointment status
-  app.patch("/api/appointments/:id/status", async (req: Request, res: Response) => {
+  // Update appointment status (admin only)
+  app.patch("/api/appointments/:id/status", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
       if (!["pending", "confirmed", "cancelled", "completed"].includes(status)) {
@@ -191,12 +191,22 @@ export async function registerRoutes(
     }
   });
 
-  // Update appointment (for modifying date/time)
+  // Update appointment (for modifying date/time) - requires email verification
   app.patch("/api/appointments/:id", async (req: Request, res: Response) => {
     try {
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Verify ownership via email (unless admin)
+      const { verifyEmail } = req.body;
+      const isAdmin = req.session?.isAdmin;
+      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.email)) {
+        return res.status(403).json({ 
+          error: "Unauthorized",
+          message: "邮箱验证失败，无权修改此预约"
+        });
       }
       
       // Check modification deadline: 10:00 PM on the day before
@@ -272,12 +282,22 @@ export async function registerRoutes(
     }
   });
 
-  // Cancel appointment
+  // Cancel appointment - requires email verification
   app.post("/api/appointments/:id/cancel", async (req: Request, res: Response) => {
     try {
       const appointment = await storage.getAppointment(req.params.id);
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
+      }
+      
+      // Verify ownership via email (unless admin)
+      const { verifyEmail } = req.body;
+      const isAdmin = req.session?.isAdmin;
+      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.email)) {
+        return res.status(403).json({ 
+          error: "Unauthorized",
+          message: "邮箱验证失败，无权取消此预约"
+        });
       }
       
       // Check cancellation deadline: 10:00 PM on the day before
@@ -388,7 +408,7 @@ export async function registerRoutes(
   await storage.initializeDefaultSchedule();
 
   // Get all schedule settings (admin only)
-  app.get("/api/schedule-settings", async (req: Request, res: Response) => {
+  app.get("/api/schedule-settings", requireAdmin, async (req: Request, res: Response) => {
     try {
       const settings = await storage.getScheduleSettings();
       res.json(settings);
@@ -555,13 +575,24 @@ export async function registerRoutes(
     }
   });
 
-  // Get single conversation with messages
+  // Get single conversation with messages - requires email verification for visitors
   app.get("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
       const conversation = await storage.getConversation(req.params.id);
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
       }
+      
+      // Verify ownership via email query param (unless admin)
+      const verifyEmail = req.query.verifyEmail as string;
+      const isAdmin = req.session?.isAdmin;
+      if (!isAdmin && (!verifyEmail || verifyEmail !== conversation.visitorEmail)) {
+        return res.status(403).json({ 
+          error: "Unauthorized",
+          message: "邮箱验证失败，无权查看此对话"
+        });
+      }
+      
       const messages = await storage.getMessagesByConversation(req.params.id);
       res.json({ ...conversation, messages });
     } catch (error) {
@@ -600,12 +631,33 @@ export async function registerRoutes(
     }
   });
 
-  // Send message in conversation
+  // Send message in conversation - requires email verification for visitors
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
     try {
       const conversation = await storage.getConversation(req.params.id);
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      const { senderType, verifyEmail } = req.body;
+      const isAdmin = req.session?.isAdmin;
+      
+      // Admin can send as "admin", visitors must verify email
+      if (senderType === "admin" && !isAdmin) {
+        return res.status(403).json({ 
+          error: "Unauthorized",
+          message: "无权以管理员身份发送消息"
+        });
+      }
+      
+      // Visitors must verify their email matches the conversation
+      if (senderType === "visitor" && !isAdmin) {
+        if (!verifyEmail || verifyEmail !== conversation.visitorEmail) {
+          return res.status(403).json({ 
+            error: "Unauthorized",
+            message: "邮箱验证失败，无权在此对话中发送消息"
+          });
+        }
       }
       
       const messageData = {
