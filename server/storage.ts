@@ -1,10 +1,12 @@
 import {
-  users, appointments, announcements, messages, conversations,
+  users, appointments, announcements, messages, conversations, scheduleSettings, blockedDates,
   type User, type InsertUser,
   type Appointment, type InsertAppointment,
   type Announcement, type InsertAnnouncement,
   type Message, type InsertMessage,
   type Conversation, type InsertConversation,
+  type ScheduleSetting, type InsertScheduleSetting,
+  type BlockedDate, type InsertBlockedDate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc } from "drizzle-orm";
@@ -41,6 +43,20 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   markMessagesAsRead(conversationId: string): Promise<void>;
   resolveConversation(id: string): Promise<Conversation | undefined>;
+
+  // Schedule Settings
+  getScheduleSettings(): Promise<ScheduleSetting[]>;
+  getScheduleSettingsByDay(dayOfWeek: number): Promise<ScheduleSetting[]>;
+  createScheduleSetting(setting: InsertScheduleSetting): Promise<ScheduleSetting>;
+  updateScheduleSetting(id: string, data: Partial<InsertScheduleSetting>): Promise<ScheduleSetting | undefined>;
+  deleteScheduleSetting(id: string): Promise<boolean>;
+  initializeDefaultSchedule(): Promise<void>;
+
+  // Blocked Dates
+  getBlockedDates(): Promise<BlockedDate[]>;
+  isDateBlocked(date: string): Promise<boolean>;
+  createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate>;
+  deleteBlockedDate(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -225,6 +241,79 @@ export class DatabaseStorage implements IStorage {
       .where(eq(conversations.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Schedule Settings
+  async getScheduleSettings(): Promise<ScheduleSetting[]> {
+    return db.select().from(scheduleSettings).orderBy(scheduleSettings.dayOfWeek, scheduleSettings.timeSlot);
+  }
+
+  async getScheduleSettingsByDay(dayOfWeek: number): Promise<ScheduleSetting[]> {
+    return db
+      .select()
+      .from(scheduleSettings)
+      .where(and(eq(scheduleSettings.dayOfWeek, dayOfWeek), eq(scheduleSettings.isActive, true)))
+      .orderBy(scheduleSettings.timeSlot);
+  }
+
+  async createScheduleSetting(setting: InsertScheduleSetting): Promise<ScheduleSetting> {
+    const [created] = await db.insert(scheduleSettings).values(setting).returning();
+    return created;
+  }
+
+  async updateScheduleSetting(id: string, data: Partial<InsertScheduleSetting>): Promise<ScheduleSetting | undefined> {
+    const [updated] = await db
+      .update(scheduleSettings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(scheduleSettings.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteScheduleSetting(id: string): Promise<boolean> {
+    const result = await db.delete(scheduleSettings).where(eq(scheduleSettings.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async initializeDefaultSchedule(): Promise<void> {
+    const existing = await db.select().from(scheduleSettings).limit(1);
+    if (existing.length > 0) return;
+
+    const defaultSlots = ["10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
+    const workdays = [1, 2, 3, 4, 5];
+
+    for (const day of workdays) {
+      for (const slot of defaultSlots) {
+        const isOfflineAvailable = !["18:00", "19:00"].includes(slot);
+        await db.insert(scheduleSettings).values({
+          dayOfWeek: day,
+          timeSlot: slot,
+          isOnlineAvailable: true,
+          isOfflineAvailable: isOfflineAvailable,
+          isActive: true,
+        });
+      }
+    }
+  }
+
+  // Blocked Dates
+  async getBlockedDates(): Promise<BlockedDate[]> {
+    return db.select().from(blockedDates).orderBy(desc(blockedDates.date));
+  }
+
+  async isDateBlocked(date: string): Promise<boolean> {
+    const [blocked] = await db.select().from(blockedDates).where(eq(blockedDates.date, date));
+    return !!blocked;
+  }
+
+  async createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate> {
+    const [created] = await db.insert(blockedDates).values(blockedDate).returning();
+    return created;
+  }
+
+  async deleteBlockedDate(id: string): Promise<boolean> {
+    const result = await db.delete(blockedDates).where(eq(blockedDates.id, id)).returning();
+    return result.length > 0;
   }
 }
 

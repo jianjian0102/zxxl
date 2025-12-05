@@ -97,6 +97,26 @@ export const conversations = pgTable("conversations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Schedule settings table (admin configurable time slots)
+export const scheduleSettings = pgTable("schedule_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dayOfWeek: integer("day_of_week").notNull(), // 0-6, 0=Sunday
+  timeSlot: text("time_slot").notNull(), // e.g. "10:00"
+  isOnlineAvailable: boolean("is_online_available").notNull().default(true),
+  isOfflineAvailable: boolean("is_offline_available").notNull().default(true),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Blocked dates table (for holidays or specific days off)
+export const blockedDates = pgTable("blocked_dates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: date("date").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   announcements: many(announcements),
@@ -153,6 +173,17 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
   isResolved: true,
 });
 
+export const insertScheduleSettingSchema = createInsertSchema(scheduleSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -168,3 +199,9 @@ export type Message = typeof messages.$inferSelect;
 
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
+
+export type InsertScheduleSetting = z.infer<typeof insertScheduleSettingSchema>;
+export type ScheduleSetting = typeof scheduleSettings.$inferSelect;
+
+export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;
+export type BlockedDate = typeof blockedDates.$inferSelect;
