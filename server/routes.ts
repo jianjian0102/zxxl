@@ -48,7 +48,44 @@ export async function registerRoutes(
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
       
-      // Check for time slot conflict
+      // Check if date is blocked
+      const isBlocked = await storage.isDateBlocked(validatedData.appointmentDate);
+      if (isBlocked) {
+        return res.status(409).json({ 
+          error: "Date blocked",
+          message: "该日期不开放预约"
+        });
+      }
+      
+      // Check if time slot is configured for the consultation mode
+      const date = new Date(validatedData.appointmentDate);
+      const dayOfWeek = date.getDay();
+      const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
+      const slotSetting = daySettings.find(s => s.timeSlot === validatedData.appointmentTime);
+      
+      if (!slotSetting) {
+        return res.status(409).json({ 
+          error: "Time slot not available",
+          message: "该时间段不可预约"
+        });
+      }
+      
+      // Check if slot is available for the consultation mode
+      const isOnline = validatedData.consultationMode === "online";
+      if (isOnline && !slotSetting.isOnlineAvailable) {
+        return res.status(409).json({ 
+          error: "Online not available",
+          message: "该时间段不支持线上咨询"
+        });
+      }
+      if (!isOnline && !slotSetting.isOfflineAvailable) {
+        return res.status(409).json({ 
+          error: "Offline not available",
+          message: "该时间段不支持线下咨询"
+        });
+      }
+      
+      // Check for time slot conflict (already booked)
       const isAvailable = await storage.checkTimeSlotAvailable(
         validatedData.appointmentDate,
         validatedData.appointmentTime
@@ -126,8 +163,46 @@ export async function registerRoutes(
       // If changing date/time, check for conflicts
       const newDate = req.body.appointmentDate || appointment.appointmentDate;
       const newTime = req.body.appointmentTime || appointment.appointmentTime;
+      const consultationMode = appointment.consultationMode;
       
       if (newDate !== appointment.appointmentDate || newTime !== appointment.appointmentTime) {
+        // Check if new date is blocked
+        const isBlocked = await storage.isDateBlocked(newDate);
+        if (isBlocked) {
+          return res.status(409).json({ 
+            error: "Date blocked",
+            message: "该日期不开放预约"
+          });
+        }
+        
+        // Check if time slot is configured for the consultation mode
+        const date = new Date(newDate);
+        const dayOfWeek = date.getDay();
+        const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
+        const slotSetting = daySettings.find(s => s.timeSlot === newTime);
+        
+        if (!slotSetting) {
+          return res.status(409).json({ 
+            error: "Time slot not available",
+            message: "该时间段不可预约"
+          });
+        }
+        
+        // Check if slot is available for the consultation mode
+        const isOnline = consultationMode === "online";
+        if (isOnline && !slotSetting.isOnlineAvailable) {
+          return res.status(409).json({ 
+            error: "Online not available",
+            message: "该时间段不支持线上咨询"
+          });
+        }
+        if (!isOnline && !slotSetting.isOfflineAvailable) {
+          return res.status(409).json({ 
+            error: "Offline not available",
+            message: "该时间段不支持线下咨询"
+          });
+        }
+        
         const isAvailable = await storage.checkTimeSlotAvailable(newDate, newTime, req.params.id);
         if (!isAvailable) {
           return res.status(409).json({ 
