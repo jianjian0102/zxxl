@@ -276,6 +276,32 @@ export async function registerRoutes(
     }
   });
 
+  // Get appointments for logged-in user (MUST be before /:id to avoid route conflict)
+  app.get("/api/appointments/my", requireUser, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const userEmail = req.session.userEmail;
+      
+      // Get appointments linked to userId or matching email
+      const appointments = await storage.getAppointmentsByUserId(userId, userEmail);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching user appointments:", error);
+      res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
+  // Get appointments by email (for visitor history lookup) - MUST be before /:id
+  app.get("/api/appointments/by-email/:email", async (req: Request, res: Response) => {
+    try {
+      const appointments = await storage.getAppointmentsByEmail(decodeURIComponent(req.params.email));
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching appointments by email:", error);
+      res.status(500).json({ error: "Failed to fetch appointments" });
+    }
+  });
+
   // Get single appointment (admin only)
   app.get("/api/appointments/:id", requireAdmin, async (req: Request, res: Response) => {
     try {
@@ -372,32 +398,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating appointment:", error);
       res.status(500).json({ error: "Failed to update appointment" });
-    }
-  });
-
-  // Get appointments for logged-in user
-  app.get("/api/appointments/my", requireUser, async (req: Request, res: Response) => {
-    try {
-      const userId = req.session.userId!;
-      const userEmail = req.session.userEmail;
-      
-      // Get appointments linked to userId or matching email
-      const appointments = await storage.getAppointmentsByUserId(userId, userEmail);
-      res.json(appointments);
-    } catch (error) {
-      console.error("Error fetching user appointments:", error);
-      res.status(500).json({ error: "Failed to fetch appointments" });
-    }
-  });
-
-  // Get appointments by email (for visitor history lookup)
-  app.get("/api/appointments/by-email/:email", async (req: Request, res: Response) => {
-    try {
-      const appointments = await storage.getAppointmentsByEmail(decodeURIComponent(req.params.email));
-      res.json(appointments);
-    } catch (error) {
-      console.error("Error fetching appointments by email:", error);
-      res.status(500).json({ error: "Failed to fetch appointments" });
     }
   });
 
@@ -815,10 +815,19 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Conversation not found" });
       }
       
-      // Verify ownership via email query param (unless admin)
+      // Verify ownership via: admin, session userId, session email, or verifyEmail query param
       const verifyEmail = req.query.verifyEmail as string;
       const isAdmin = req.session?.isAdmin;
-      if (!isAdmin && (!verifyEmail || verifyEmail !== conversation.visitorEmail)) {
+      const sessionUserId = req.session?.userId;
+      const sessionEmail = req.session?.userEmail;
+      
+      const isOwner = 
+        isAdmin ||
+        (sessionUserId && conversation.userId === sessionUserId) ||
+        (sessionEmail && conversation.visitorEmail === sessionEmail) ||
+        (verifyEmail && verifyEmail === conversation.visitorEmail);
+      
+      if (!isOwner) {
         return res.status(403).json({ 
           error: "Unauthorized",
           message: "邮箱验证失败，无权查看此对话"
