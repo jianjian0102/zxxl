@@ -7,6 +7,9 @@ import session from "express-session";
 declare module "express-session" {
   interface SessionData {
     isAdmin?: boolean;
+    userId?: string;
+    userEmail?: string | null;
+    userName?: string | null;
   }
 }
 

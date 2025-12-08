@@ -11,11 +11,13 @@ export const consultationModeEnum = pgEnum("consultation_mode", ["online", "offl
 export const appointmentStatusEnum = pgEnum("appointment_status", ["pending", "pending_payment", "confirmed", "cancelled", "completed"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
 
-// Users table
+// Users table (supports both admin and visitor accounts)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
+  username: text("username").unique(), // For admin login
+  email: text("email").unique(), // For visitor login
   password: text("password").notNull(),
+  name: text("name"), // Visitor display name
   role: userRoleEnum("role").notNull().default("client"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -23,6 +25,9 @@ export const users = pgTable("users", {
 // Appointments table
 export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link to registered user (optional - for guests who haven't registered)
+  userId: varchar("user_id").references(() => users.id),
   
   // Scheduling
   appointmentDate: date("appointment_date").notNull(),
@@ -89,6 +94,7 @@ export const messages = pgTable("messages", {
 // Conversations table (to group messages)
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Link to registered user
   visitorName: text("visitor_name").notNull(),
   visitorEmail: text("visitor_email"),
   subject: text("subject"),
@@ -145,6 +151,19 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   role: true,
+});
+
+// Visitor registration schema
+export const visitorRegisterSchema = z.object({
+  email: z.string().email("请输入有效的邮箱地址"),
+  password: z.string().min(6, "密码至少需要6个字符"),
+  name: z.string().min(1, "请输入您的姓名"),
+});
+
+// Visitor login schema
+export const visitorLoginSchema = z.object({
+  email: z.string().email("请输入有效的邮箱地址"),
+  password: z.string().min(1, "请输入密码"),
 });
 
 export const insertAppointmentSchema = createInsertSchema(appointments).omit({

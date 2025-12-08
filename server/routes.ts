@@ -8,6 +8,8 @@ import {
   insertConversationSchema,
   insertScheduleSettingSchema,
   insertBlockedDateSchema,
+  visitorRegisterSchema,
+  visitorLoginSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -19,6 +21,13 @@ const ADMIN_PASSWORD_HASH = "$2b$10$ZDkMBlEUgct87nL49LFAku7WHpM6zDRcKBmAIZ4EyLVD
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.isAdmin) {
     return res.status(401).json({ error: "未授权访问" });
+  }
+  next();
+}
+
+function requireUser(req: Request, res: Response, next: NextFunction) {
+  if (!req.session?.userId) {
+    return res.status(401).json({ error: "请先登录" });
   }
   next();
 }
@@ -66,6 +75,134 @@ export async function registerRoutes(
 
   app.get("/api/admin/me", (req: Request, res: Response) => {
     res.json({ isAdmin: !!req.session?.isAdmin });
+  });
+
+  // ============ VISITOR AUTH API ============
+
+  // Visitor registration
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const validatedData = visitorRegisterSchema.parse(req.body);
+      
+      // Check if email already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(409).json({ error: "该邮箱已被注册" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Create user
+      const user = await storage.createVisitorUser({
+        email: validatedData.email,
+        password: hashedPassword,
+        name: validatedData.name,
+      });
+      
+      // Link existing appointments and conversations to this user
+      await storage.linkAppointmentsToUser(validatedData.email, user.id);
+      await storage.linkConversationsToUser(validatedData.email, user.id);
+      
+      // Log in automatically
+      req.session.userId = user.id;
+      req.session.userEmail = user.email;
+      req.session.userName = user.name;
+      
+      res.json({ 
+        success: true, 
+        message: "注册成功",
+        user: { id: user.id, email: user.email, name: user.name }
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "注册失败，请稍后重试" });
+    }
+  });
+
+  // Visitor login
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const validatedData = visitorLoginSchema.parse(req.body);
+      
+      const user = await storage.getUserByEmail(validatedData.email);
+      if (!user) {
+        return res.status(401).json({ error: "邮箱或密码错误" });
+      }
+      
+      const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "邮箱或密码错误" });
+      }
+      
+      req.session.userId = user.id;
+      req.session.userEmail = user.email;
+      req.session.userName = user.name;
+      
+      res.json({ 
+        success: true, 
+        message: "登录成功",
+        user: { id: user.id, email: user.email, name: user.name }
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ error: "登录失败" });
+    }
+  });
+
+  // Visitor logout
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "登出失败" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true, message: "已登出" });
+    });
+  });
+
+  // Get current user info
+  app.get("/api/auth/me", (req: Request, res: Response) => {
+    if (req.session?.userId) {
+      res.json({ 
+        isLoggedIn: true,
+        user: {
+          id: req.session.userId,
+          email: req.session.userEmail,
+          name: req.session.userName,
+        }
+      });
+    } else {
+      res.json({ isLoggedIn: false, user: null });
+    }
+  });
+
+  // Get user's appointments
+  app.get("/api/user/appointments", requireUser, async (req: Request, res: Response) => {
+    try {
+      const appointments = await storage.getAppointmentsByUserId(req.session.userId!);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching user appointments:", error);
+      res.status(500).json({ error: "获取预约失败" });
+    }
+  });
+
+  // Get user's conversations
+  app.get("/api/user/conversations", requireUser, async (req: Request, res: Response) => {
+    try {
+      const conversations = await storage.getConversationsByUserId(req.session.userId!);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching user conversations:", error);
+      res.status(500).json({ error: "获取对话失败" });
+    }
   });
 
   // ============ APPOINTMENTS API ============

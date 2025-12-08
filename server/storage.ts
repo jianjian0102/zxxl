@@ -15,17 +15,21 @@ export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createVisitorUser(data: { email: string; password: string; name: string }): Promise<User>;
 
   // Appointments
   getAppointments(): Promise<Appointment[]>;
   getAppointment(id: string): Promise<Appointment | undefined>;
   getAppointmentsByEmail(email: string): Promise<Appointment[]>;
+  getAppointmentsByUserId(userId: string): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, data: Partial<InsertAppointment>): Promise<Appointment | undefined>;
   updateAppointmentStatus(id: string, status: "pending" | "confirmed" | "cancelled" | "completed"): Promise<Appointment | undefined>;
   checkTimeSlotAvailable(date: string, time: string, excludeAppointmentId?: string): Promise<boolean>;
   getBookedSlots(date: string): Promise<string[]>;
+  linkAppointmentsToUser(email: string, userId: string): Promise<void>;
 
   // Announcements
   getAnnouncements(): Promise<Announcement[]>;
@@ -38,11 +42,13 @@ export interface IStorage {
   getConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<Conversation | undefined>;
   getConversationByEmail(email: string): Promise<Conversation | undefined>;
+  getConversationsByUserId(userId: string): Promise<Conversation[]>;
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessagesAsRead(conversationId: string): Promise<void>;
   resolveConversation(id: string): Promise<Conversation | undefined>;
+  linkConversationsToUser(email: string, userId: string): Promise<void>;
 
   // Schedule Settings
   getScheduleSettings(): Promise<ScheduleSetting[]>;
@@ -71,8 +77,23 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async createVisitorUser(data: { email: string; password: string; name: string }): Promise<User> {
+    const [user] = await db.insert(users).values({
+      email: data.email,
+      password: data.password,
+      name: data.name,
+      role: "client",
+    }).returning();
     return user;
   }
 
@@ -158,6 +179,21 @@ export class DatabaseStorage implements IStorage {
       }
       return time;
     });
+  }
+
+  async getAppointmentsByUserId(userId: string): Promise<Appointment[]> {
+    return db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.userId, userId))
+      .orderBy(desc(appointments.appointmentDate), desc(appointments.appointmentTime));
+  }
+
+  async linkAppointmentsToUser(email: string, userId: string): Promise<void> {
+    await db
+      .update(appointments)
+      .set({ userId })
+      .where(eq(appointments.contactEmail, email));
   }
 
   // Announcements
@@ -247,6 +283,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(conversations.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async getConversationsByUserId(userId: string): Promise<Conversation[]> {
+    return db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, userId))
+      .orderBy(desc(conversations.updatedAt));
+  }
+
+  async linkConversationsToUser(email: string, userId: string): Promise<void> {
+    await db
+      .update(conversations)
+      .set({ userId })
+      .where(eq(conversations.visitorEmail, email));
   }
 
   // Schedule Settings
