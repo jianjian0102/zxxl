@@ -13,6 +13,8 @@ import AppointmentsPage from "@/pages/appointments";
 import AdminSettingsPage from "@/pages/admin-settings";
 import AdminAppointmentsPage from "@/pages/admin-appointments";
 import AdminLoginPage from "@/pages/admin-login";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/announcements" component={AnnouncementsPage} />
       <Route path="/messages" component={MessagesPage} />
       <Route path="/appointments" component={AppointmentsPage} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/settings" component={AdminSettingsPage} />
       <Route path="/admin/appointments" component={AdminAppointmentsPage} />
