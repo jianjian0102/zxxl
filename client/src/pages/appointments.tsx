@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,13 +25,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Calendar, Clock, MapPin, Search, Edit, X, AlertCircle, CheckCircle, Loader2, ArrowRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Search, Edit, X, AlertCircle, CheckCircle, Loader2, ArrowRight, User } from "lucide-react";
 import { format, parseISO, isAfter, setHours, setMinutes, subDays, addDays, isBefore, startOfDay } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Appointment } from "@shared/schema";
+
+interface AuthUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+
+interface AuthResponse {
+  isLoggedIn: boolean;
+  user: AuthUser | null;
+}
 
 interface AvailableSlot {
   time: string;
@@ -82,11 +94,23 @@ export default function AppointmentsPage() {
   const [newTime, setNewTime] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const { data: authData, isLoading: authLoading } = useQuery<AuthResponse>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const isLoggedIn = authData?.isLoggedIn;
+  const user = authData?.user;
+
   const dateString = newDate ? format(newDate, "yyyy-MM-dd") : null;
 
   const { data: scheduleData, isLoading: loadingSlots } = useQuery<ScheduleResponse>({
     queryKey: ["/api/schedule/available", dateString],
     enabled: !!dateString && modifyDialogOpen,
+  });
+
+  const { data: myAppointments, isLoading: loadingMyAppointments } = useQuery<Appointment[]>({
+    queryKey: ["/api/appointments/my"],
+    enabled: isLoggedIn === true,
   });
 
   useEffect(() => {
@@ -140,7 +164,11 @@ export default function AppointmentsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments/by-email/${encodeURIComponent(searchedEmail)}`] });
+      if (isLoggedIn) {
+        queryClient.invalidateQueries({ queryKey: ["/api/appointments/my"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: [`/api/appointments/by-email/${encodeURIComponent(searchedEmail)}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/schedule/available"] });
       toast({
         title: "预约已取消",
@@ -173,7 +201,11 @@ export default function AppointmentsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments/by-email/${encodeURIComponent(searchedEmail)}`] });
+      if (isLoggedIn) {
+        queryClient.invalidateQueries({ queryKey: ["/api/appointments/my"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: [`/api/appointments/by-email/${encodeURIComponent(searchedEmail)}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/schedule/available"] });
       toast({
         title: "预约已更改",
@@ -211,19 +243,19 @@ export default function AppointmentsPage() {
   };
 
   const confirmCancel = () => {
-    if (selectedAppointment) {
+    if (selectedAppointment && emailForMutation) {
       cancelMutation.mutate({ 
         appointmentId: selectedAppointment.id, 
-        email: searchedEmail 
+        email: emailForMutation 
       });
     }
   };
 
   const confirmModify = () => {
-    if (selectedAppointment && newDate && newTime) {
+    if (selectedAppointment && newDate && newTime && emailForMutation) {
       modifyMutation.mutate({
         appointmentId: selectedAppointment.id,
-        email: searchedEmail,
+        email: emailForMutation,
         appointmentDate: format(newDate, "yyyy-MM-dd"),
         appointmentTime: newTime,
       });
@@ -242,46 +274,97 @@ export default function AppointmentsPage() {
     return newDateStr !== selectedAppointment.appointmentDate || newTime !== currentTime;
   };
 
+  const displayAppointments = isLoggedIn ? myAppointments : appointments;
+  const displayLoading = isLoggedIn ? loadingMyAppointments : isLoading;
+  const showResults = isLoggedIn || searchedEmail;
+  const emailForMutation = isLoggedIn && user?.email ? user.email : searchedEmail;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
           <div className="text-center space-y-2">
             <h1 className="text-2xl font-semibold" data-testid="text-page-title">我的预约</h1>
-            <p className="text-muted-foreground">
-              输入您预约时填写的邮箱地址查询预约记录
-            </p>
+            {isLoggedIn ? (
+              <p className="text-muted-foreground">
+                欢迎回来，{user?.name || user?.email}
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                登录后可自动查看您的预约记录，或输入邮箱地址查询
+              </p>
+            )}
           </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              <form onSubmit={handleSearch} className="flex gap-3 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <Label htmlFor="email" className="sr-only">邮箱地址</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="请输入邮箱地址"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    data-testid="input-email-search"
-                  />
-                </div>
-                <Button type="submit" disabled={!email.trim()} data-testid="button-search">
-                  <Search className="mr-2 h-4 w-4" />
-                  查询预约
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          {!isLoggedIn && (
+            <>
+              <Card>
+                <CardContent className="pt-6">
+                  <form onSubmit={handleSearch} className="flex gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      <Label htmlFor="email" className="sr-only">邮箱地址</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="请输入邮箱地址"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        data-testid="input-email-search"
+                      />
+                    </div>
+                    <Button type="submit" disabled={!email.trim()} data-testid="button-search">
+                      <Search className="mr-2 h-4 w-4" />
+                      查询预约
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
 
-          {isLoading && (
+              {!searchedEmail && (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">
+                      登录后可自动显示您的所有预约记录
+                    </p>
+                    <div className="flex gap-3 justify-center flex-wrap">
+                      <Link href="/login">
+                        <Button variant="outline" data-testid="button-login-prompt">
+                          登录
+                        </Button>
+                      </Link>
+                      <Link href="/register">
+                        <Button data-testid="button-register-prompt">
+                          注册账号
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {displayLoading && (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          {error && (
+          {error && !isLoggedIn && (
             <Card>
               <CardContent className="py-8 text-center">
                 <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
@@ -290,14 +373,14 @@ export default function AppointmentsPage() {
             </Card>
           )}
 
-          {searchedEmail && !isLoading && !error && (
+          {showResults && !displayLoading && !error && (
             <>
-              {appointments && appointments.length > 0 ? (
+              {displayAppointments && displayAppointments.length > 0 ? (
                 <div className="space-y-4">
                   <h2 className="text-lg font-medium">
-                    查询结果 <span className="text-muted-foreground font-normal">({appointments.length} 条记录)</span>
+                    {isLoggedIn ? "我的预约" : "查询结果"} <span className="text-muted-foreground font-normal">({displayAppointments.length} 条记录)</span>
                   </h2>
-                  {appointments.map((appointment) => {
+                  {displayAppointments.map((appointment) => {
                     const canModify = canModifyAppointment(appointment.appointmentDate);
                     const isActiveAppointment = appointment.status === "pending" || appointment.status === "pending_payment" || appointment.status === "confirmed";
                     const deadline = getModificationDeadline(appointment.appointmentDate);
@@ -392,12 +475,27 @@ export default function AppointmentsPage() {
                 <Card>
                   <CardContent className="py-12 text-center">
                     <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">
-                      未找到与该邮箱关联的预约记录
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      请确认邮箱地址是否正确，或尝试其他邮箱
-                    </p>
+                    {isLoggedIn ? (
+                      <>
+                        <p className="text-muted-foreground">
+                          您还没有预约记录
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <Link href="/booking" className="text-primary hover:underline">
+                            立即预约咨询
+                          </Link>
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-muted-foreground">
+                          未找到与该邮箱关联的预约记录
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          请确认邮箱地址是否正确，或尝试其他邮箱
+                        </p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               )}

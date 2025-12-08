@@ -77,6 +77,64 @@ export async function registerRoutes(
     res.json({ isAdmin: !!req.session?.isAdmin });
   });
 
+  // Search users by email (admin only)
+  app.get("/api/admin/users/search", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const email = req.query.email as string;
+      if (!email || email.length < 3) {
+        return res.json([]);
+      }
+      
+      const users = await storage.searchUsersByEmail(email);
+      res.json(users.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+      })));
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
+  // Admin start conversation with a user (by email)
+  app.post("/api/admin/conversations/initiate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { visitorEmail, visitorName, subject } = req.body;
+      
+      if (!visitorEmail) {
+        return res.status(400).json({ error: "邮箱是必填项" });
+      }
+      
+      // Check if conversation already exists for this email
+      const existingConversation = await storage.getConversationByEmail(visitorEmail);
+      if (existingConversation) {
+        const messages = await storage.getMessagesByConversation(existingConversation.id);
+        return res.json({ ...existingConversation, messages, isExisting: true });
+      }
+      
+      // Create new conversation
+      const conversation = await storage.createConversation({
+        visitorEmail,
+        visitorName: visitorName || visitorEmail.split("@")[0],
+        subject: subject || "咨询师发起的对话",
+      });
+      
+      // Link to user if they have an account
+      const user = await storage.getUserByEmail(visitorEmail);
+      if (user) {
+        await storage.linkConversationsToUser(visitorEmail, user.id);
+      }
+      
+      const messages = await storage.getMessagesByConversation(conversation.id);
+      res.json({ ...conversation, messages, isExisting: false });
+    } catch (error) {
+      console.error("Error initiating conversation:", error);
+      res.status(500).json({ error: "Failed to initiate conversation" });
+    }
+  });
+
   // ============ VISITOR AUTH API ============
 
   // Visitor registration
@@ -314,6 +372,21 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating appointment:", error);
       res.status(500).json({ error: "Failed to update appointment" });
+    }
+  });
+
+  // Get appointments for logged-in user
+  app.get("/api/appointments/my", requireUser, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const userEmail = req.session.userEmail;
+      
+      // Get appointments linked to userId or matching email
+      const appointments = await storage.getAppointmentsByUserId(userId, userEmail);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching user appointments:", error);
+      res.status(500).json({ error: "Failed to fetch appointments" });
     }
   });
 
@@ -692,6 +765,28 @@ export async function registerRoutes(
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get conversations for logged-in user
+  app.get("/api/conversations/my", requireUser, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const userEmail = req.session.userEmail;
+      
+      const conversations = await storage.getConversationsByUserId(userId, userEmail);
+      
+      const conversationsWithMessages = await Promise.all(
+        conversations.map(async (conv) => {
+          const messages = await storage.getMessagesByConversation(conv.id);
+          return { ...conv, messages };
+        })
+      );
+      
+      res.json(conversationsWithMessages);
+    } catch (error) {
+      console.error("Error fetching user conversations:", error);
       res.status(500).json({ error: "Failed to fetch conversations" });
     }
   });

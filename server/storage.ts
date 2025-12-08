@@ -9,13 +9,14 @@ import {
   type BlockedDate, type InsertBlockedDate,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  searchUsersByEmail(emailQuery: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   createVisitorUser(data: { email: string; password: string; name: string }): Promise<User>;
 
@@ -23,7 +24,7 @@ export interface IStorage {
   getAppointments(): Promise<Appointment[]>;
   getAppointment(id: string): Promise<Appointment | undefined>;
   getAppointmentsByEmail(email: string): Promise<Appointment[]>;
-  getAppointmentsByUserId(userId: string): Promise<Appointment[]>;
+  getAppointmentsByUserId(userId: string, email?: string | null): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, data: Partial<InsertAppointment>): Promise<Appointment | undefined>;
   updateAppointmentStatus(id: string, status: "pending" | "confirmed" | "cancelled" | "completed"): Promise<Appointment | undefined>;
@@ -42,7 +43,7 @@ export interface IStorage {
   getConversations(): Promise<Conversation[]>;
   getConversation(id: string): Promise<Conversation | undefined>;
   getConversationByEmail(email: string): Promise<Conversation | undefined>;
-  getConversationsByUserId(userId: string): Promise<Conversation[]>;
+  getConversationsByUserId(userId: string, email?: string | null): Promise<Conversation[]>;
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getMessagesByConversation(conversationId: string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
@@ -80,6 +81,13 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || undefined;
+  }
+
+  async searchUsersByEmail(emailQuery: string): Promise<User[]> {
+    return db
+      .select()
+      .from(users)
+      .where(sql`${users.email} ILIKE ${'%' + emailQuery + '%'}`);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -181,7 +189,19 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getAppointmentsByUserId(userId: string): Promise<Appointment[]> {
+  async getAppointmentsByUserId(userId: string, email?: string | null): Promise<Appointment[]> {
+    if (email) {
+      return db
+        .select()
+        .from(appointments)
+        .where(
+          or(
+            eq(appointments.userId, userId),
+            eq(appointments.contactEmail, email)
+          )
+        )
+        .orderBy(desc(appointments.appointmentDate), desc(appointments.appointmentTime));
+    }
     return db
       .select()
       .from(appointments)
@@ -285,7 +305,19 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async getConversationsByUserId(userId: string): Promise<Conversation[]> {
+  async getConversationsByUserId(userId: string, email?: string | null): Promise<Conversation[]> {
+    if (email) {
+      return db
+        .select()
+        .from(conversations)
+        .where(
+          or(
+            eq(conversations.userId, userId),
+            eq(conversations.visitorEmail, email)
+          )
+        )
+        .orderBy(desc(conversations.updatedAt));
+    }
     return db
       .select()
       .from(conversations)
