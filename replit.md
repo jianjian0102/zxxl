@@ -100,3 +100,33 @@ Preferred communication style: Simple, everyday language.
 - Real-time form validation with Chinese error messages
 - Loading states and error handling throughout
 - Toast notifications for user feedback
+
+### December 2025 - Visitor Authentication System
+
+**Visitor Account System**:
+- Custom email/password authentication with bcrypt password hashing
+- Session-based login with secure session management
+- Registration automatically links existing appointments/conversations to new user accounts
+- Login/register pages with Chinese UI and validation
+
+**Authentication API** (server/routes.ts):
+- `/api/auth/register` - Visitor registration with password hashing
+- `/api/auth/login` - Visitor login with session creation
+- `/api/auth/logout` - Session destruction
+- `/api/auth/me` - Check authentication status
+
+**Auto-Loading for Logged-In Users**:
+- `/api/appointments/my` - Returns authenticated user's appointments
+- `/api/conversations/my` - Returns authenticated user's conversations
+- Dual lookup by userId AND email for backwards compatibility with legacy data
+
+**Admin User Search Features**:
+- `/api/admin/users/search` - Search users by email (ILIKE partial match)
+- `/api/admin/conversations/initiate` - Admin can start conversations with any email
+- MessageCenter admin view includes search and new conversation form
+
+**Frontend Updates**:
+- Header shows login/register buttons for guests, user dropdown for authenticated users
+- Appointments page auto-loads user's appointments when logged in
+- Messages page skips email entry and auto-loads conversations for logged-in users
+- Registration links existing data to new accounts via contactEmail/visitorEmail matching
