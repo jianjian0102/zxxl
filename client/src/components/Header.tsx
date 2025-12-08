@@ -53,9 +53,9 @@ export default function Header({ isDarkMode, toggleDarkMode }: HeaderProps) {
   const navItems = [
     { href: "/", label: "首页" },
     { href: "/booking", label: "预约咨询" },
-    { href: "/appointments", label: "我的预约" },
     { href: "/announcements", label: "公告栏" },
     { href: "/messages", label: "留言" },
+    { href: "/appointments", label: "我的预约" },
   ];
 
   const isActive = (href: string) => location === href;
