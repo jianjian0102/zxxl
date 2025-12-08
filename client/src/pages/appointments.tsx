@@ -455,8 +455,13 @@ export default function AppointmentsPage() {
                   {selectedAppointment.appointmentTime}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {selectedAppointment.consultationMode === "online" ? "线上咨询" : "线下咨询"}
+                  {selectedAppointment.consultationType === "regular" ? "一般咨询" : "公益低价咨询"} · {selectedAppointment.consultationMode === "online" ? "线上" : "线下"}
                 </div>
+              </div>
+
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-300">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>如需更改咨询方式（线上/线下）或咨询类型（一般/公益），请取消当前预约后重新申请</span>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
