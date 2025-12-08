@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Clock, Plus, Trash2, CalendarX, Settings, Megaphone, MessageSquare, LogOut } from "lucide-react";
+import { Calendar, Clock, Plus, Trash2, CalendarX, Settings, Megaphone, MessageSquare, LogOut, ClipboardList } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { zhCN } from "date-fns/locale";
@@ -180,15 +181,23 @@ export default function AdminSettingsPage() {
             <Settings className="w-8 h-8 text-primary" />
             <h1 className="text-3xl font-bold">管理中心</h1>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            data-testid="button-logout"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            {logoutMutation.isPending ? "登出中..." : "登出"}
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href="/admin/appointments">
+              <Button variant="outline" data-testid="button-appointments">
+                <ClipboardList className="w-4 h-4 mr-2" />
+                预约管理
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              {logoutMutation.isPending ? "登出中..." : "登出"}
+            </Button>
+          </div>
         </div>
         <p className="text-muted-foreground">
           管理咨询时间、公告和留言

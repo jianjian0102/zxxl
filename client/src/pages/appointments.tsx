@@ -59,12 +59,14 @@ function getStatusBadge(status: string) {
   switch (status) {
     case "pending":
       return <Badge variant="secondary" data-testid="badge-status-pending">待确认</Badge>;
+    case "pending_payment":
+      return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800" data-testid="badge-status-pending-payment">待付款</Badge>;
     case "confirmed":
       return <Badge className="bg-primary/10 text-primary border-primary/20" data-testid="badge-status-confirmed">已确认</Badge>;
     case "cancelled":
       return <Badge variant="outline" className="text-muted-foreground" data-testid="badge-status-cancelled">已取消</Badge>;
     case "completed":
-      return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800" data-testid="badge-status-completed">已完成</Badge>;
+      return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800" data-testid="badge-status-completed">咨询结束</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -297,7 +299,7 @@ export default function AppointmentsPage() {
                   </h2>
                   {appointments.map((appointment) => {
                     const canModify = canModifyAppointment(appointment.appointmentDate);
-                    const isActiveAppointment = appointment.status === "pending" || appointment.status === "confirmed";
+                    const isActiveAppointment = appointment.status === "pending" || appointment.status === "pending_payment" || appointment.status === "confirmed";
                     const deadline = getModificationDeadline(appointment.appointmentDate);
                     
                     return (
@@ -356,6 +358,14 @@ export default function AppointmentsPage() {
                               <MapPin className="h-4 w-4" />
                               <span>{appointment.consultationMode === "online" ? "线上咨询" : "线下咨询"}</span>
                             </div>
+                            {appointment.status === "pending_payment" && (
+                              <div className="flex items-start gap-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md p-2 mt-2">
+                                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                                <span className="text-xs">
+                                  请确认咨询师的留言，并在咨询开始前24小时完成支付
+                                </span>
+                              </div>
+                            )}
                             {isActiveAppointment && !canModify && (
                               <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-md p-2 mt-2">
                                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
