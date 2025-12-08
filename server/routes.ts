@@ -165,7 +165,7 @@ export async function registerRoutes(
   app.patch("/api/appointments/:id/status", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { status } = req.body;
-      if (!["pending", "confirmed", "cancelled", "completed"].includes(status)) {
+      if (!["pending", "pending_payment", "confirmed", "cancelled", "completed"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
       
