@@ -202,7 +202,7 @@ export async function registerRoutes(
       // Verify ownership via email (unless admin)
       const { verifyEmail } = req.body;
       const isAdmin = req.session?.isAdmin;
-      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.email)) {
+      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.contactEmail)) {
         return res.status(403).json({ 
           error: "Unauthorized",
           message: "邮箱验证失败，无权修改此预约"
@@ -293,7 +293,7 @@ export async function registerRoutes(
       // Verify ownership via email (unless admin)
       const { verifyEmail } = req.body;
       const isAdmin = req.session?.isAdmin;
-      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.email)) {
+      if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.contactEmail)) {
         return res.status(403).json({ 
           error: "Unauthorized",
           message: "邮箱验证失败，无权取消此预约"
