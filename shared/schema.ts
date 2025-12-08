@@ -8,7 +8,7 @@ import { z } from "zod";
 export const userRoleEnum = pgEnum("user_role", ["admin", "client"]);
 export const consultationTypeEnum = pgEnum("consultation_type", ["regular", "welfare"]);
 export const consultationModeEnum = pgEnum("consultation_mode", ["online", "offline"]);
-export const appointmentStatusEnum = pgEnum("appointment_status", ["pending", "confirmed", "cancelled", "completed"]);
+export const appointmentStatusEnum = pgEnum("appointment_status", ["pending", "pending_payment", "confirmed", "cancelled", "completed"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
 
 // Users table
