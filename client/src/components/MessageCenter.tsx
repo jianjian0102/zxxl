@@ -463,6 +463,9 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
                           )}
                         </Avatar>
                         <div className={`flex flex-col max-w-[75%] ${message.isFromAdmin ? "items-end" : "items-start"}`}>
+                          <span className="text-xs text-muted-foreground mb-1">
+                            {message.isFromAdmin ? "咨询师 简宏宇" : conversationDetail?.visitorName || "来访者"}
+                          </span>
                           <div className={`rounded-lg px-4 py-2 ${message.isFromAdmin ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                           </div>
@@ -722,6 +725,9 @@ export default function MessageCenter({ isAdmin = false }: MessageCenterProps) {
                   )}
                 </Avatar>
                 <div className={`flex flex-col max-w-[75%] ${message.isFromAdmin ? "items-start" : "items-end"}`}>
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {message.isFromAdmin ? "咨询师 简宏宇" : "我"}
+                  </span>
                   <div className={`rounded-lg px-4 py-2 ${message.isFromAdmin ? "bg-muted" : "bg-primary text-primary-foreground"}`}>
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
