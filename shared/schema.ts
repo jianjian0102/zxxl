@@ -25,44 +25,44 @@ export const users = pgTable("users", {
 // Appointments table
 export const appointments = pgTable("appointments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  
+
   // Link to registered user (optional - for guests who haven't registered)
   userId: varchar("user_id").references(() => users.id),
-  
+
   // Scheduling
   appointmentDate: date("appointment_date").notNull(),
   appointmentTime: time("appointment_time").notNull(),
   consultationType: consultationTypeEnum("consultation_type").notNull(),
   consultationMode: consultationModeEnum("consultation_mode").notNull(),
   status: appointmentStatusEnum("status").notNull().default("pending"),
-  
+
   // Personal info
   name: text("name").notNull(),
   gender: genderEnum("gender").notNull(),
   birthDate: date("birth_date").notNull(),
   occupation: text("occupation"),
   hobbies: text("hobbies"),
-  
+
   // Contact info
   contactPhone: text("contact_phone").notNull(),
   contactEmail: text("contact_email"),
   emergencyContact: text("emergency_contact"),
-  
+
   // Counseling history
   hasPreviousCounseling: boolean("has_previous_counseling").notNull().default(false),
   previousCounselingDetails: text("previous_counseling_details"),
   hasMentalDiagnosis: boolean("has_mental_diagnosis").notNull().default(false),
   mentalDiagnosisDetails: text("mental_diagnosis_details"),
   currentMedication: text("current_medication"),
-  
+
   // Consultation focus (stored as JSON array)
   consultationTopics: text("consultation_topics").array(),
   situationDescription: text("situation_description").notNull(),
-  
+
   // Agreements
   dataCollectionConsent: boolean("data_collection_consent").notNull().default(false),
   confidentialityConsent: boolean("confidentiality_consent").notNull().default(false),
-  
+
   // Metadata
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -85,7 +85,9 @@ export const messages = pgTable("messages", {
   conversationId: varchar("conversation_id").notNull(),
   senderName: text("sender_name").notNull(),
   senderEmail: text("sender_email"),
-  content: text("content").notNull(),
+  content: text("content"),
+  imageUrl: text("image_url"),
+  contentType: text("content_type").notNull().default("text"),
   isFromAdmin: boolean("is_from_admin").notNull().default(false),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),

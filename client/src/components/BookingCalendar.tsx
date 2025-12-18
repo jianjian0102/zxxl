@@ -45,7 +45,7 @@ export default function BookingCalendar({ consultationType, consultationMode, on
   const getAvailableSlots = (): TimeSlot[] => {
     if (!selectedDate || !scheduleData) return [];
     if (scheduleData.isBlocked) return [];
-    
+
     return scheduleData.slots
       .filter((slot) => {
         if (consultationMode === "online") return slot.isOnlineAvailable && !slot.isBooked;
@@ -57,11 +57,11 @@ export default function BookingCalendar({ consultationType, consultationMode, on
         available: true,
       }));
   };
-  
+
   const getAllSlots = (): TimeSlot[] => {
     if (!selectedDate || !scheduleData) return [];
     if (scheduleData.isBlocked) return [];
-    
+
     return scheduleData.slots
       .filter((slot) => {
         if (consultationMode === "online") return slot.isOnlineAvailable;
@@ -76,7 +76,7 @@ export default function BookingCalendar({ consultationType, consultationMode, on
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const maxDate = addDays(today, 30);
+  const maxDate = addDays(today, 14);
 
   const disabledDays = (date: Date) => {
     const d = new Date(date);
@@ -122,7 +122,7 @@ export default function BookingCalendar({ consultationType, consultationMode, on
         <CardHeader>
           <CardTitle className="text-lg">选择时间</CardTitle>
           <CardDescription>
-            {selectedDate 
+            {selectedDate
               ? format(selectedDate, "yyyy年M月d日 EEEE", { locale: zhCN })
               : "请先选择日期"
             }
@@ -157,8 +157,8 @@ export default function BookingCalendar({ consultationType, consultationMode, on
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                {scheduleData?.isBlocked 
-                  ? "当日不开放预约" 
+                {scheduleData?.isBlocked
+                  ? "当日不开放预约"
                   : "当日无可用时间段"}
               </div>
             )
@@ -183,8 +183,8 @@ export default function BookingCalendar({ consultationType, consultationMode, on
                     <MapPin className="h-4 w-4" />
                   )}
                   <span>
-                    {consultationType === "regular" ? "一般咨询" : "公益低价咨询"} · 
-                    {consultationMode === "online" ? "线上" : "线下"} · 
+                    {consultationType === "regular" ? "一般咨询" : "公益低价咨询"} ·
+                    {consultationMode === "online" ? "线上" : "线下"} ·
                     {consultationType === "regular" ? "¥300" : "¥150"}/50分钟
                   </span>
                 </div>

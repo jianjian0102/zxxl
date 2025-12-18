@@ -17,6 +17,7 @@ import { zhCN } from "date-fns/locale";
 import type { ScheduleSetting, BlockedDate } from "@shared/schema";
 import AnnouncementList from "@/components/AnnouncementList";
 import MessageCenter from "@/components/MessageCenter";
+import AppointmentManager from "@/components/AppointmentManager";
 
 const DAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -182,12 +183,7 @@ export default function AdminSettingsPage() {
             <h1 className="text-3xl font-bold">管理中心</h1>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Link href="/admin/appointments">
-              <Button variant="outline" data-testid="button-appointments">
-                <ClipboardList className="w-4 h-4 mr-2" />
-                预约管理
-              </Button>
-            </Link>
+
             <Button
               variant="outline"
               onClick={() => logoutMutation.mutate()}
@@ -221,6 +217,10 @@ export default function AdminSettingsPage() {
           <TabsTrigger value="messages" className="gap-2" data-testid="tab-messages">
             <MessageSquare className="w-4 h-4" />
             留言管理
+          </TabsTrigger>
+          <TabsTrigger value="appointments" className="gap-2" data-testid="tab-appointments">
+            <ClipboardList className="w-4 h-4" />
+            预约管理
           </TabsTrigger>
         </TabsList>
 
@@ -290,11 +290,10 @@ export default function AdminSettingsPage() {
                       .map((setting) => (
                         <div
                           key={setting.id}
-                          className={`p-3 rounded-md border ${
-                            setting.isActive
+                          className={`p-3 rounded-md border ${setting.isActive
                               ? "bg-card"
                               : "bg-muted/50 opacity-60"
-                          }`}
+                            }`}
                           data-testid={`slot-${setting.id}`}
                         >
                           <div className="flex items-center justify-between mb-2">
@@ -473,6 +472,16 @@ export default function AdminSettingsPage() {
             </p>
           </div>
           <MessageCenter isAdmin={true} />
+        </TabsContent>
+
+        <TabsContent value="appointments" className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold mb-2">预约管理</h2>
+            <p className="text-muted-foreground text-sm">
+              查看和管理来访者的预约申请
+            </p>
+          </div>
+          <AppointmentManager />
         </TabsContent>
       </Tabs>
     </div>

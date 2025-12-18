@@ -1,4 +1,4 @@
-import { MousePointer, Calendar, ClipboardList, CheckCircle } from "lucide-react";
+import { MousePointer, Calendar, ClipboardList, CheckCircle, CreditCard } from "lucide-react";
 
 const steps = [
   {
@@ -8,18 +8,23 @@ const steps = [
   },
   {
     icon: Calendar,
-    title: "选择预约时间",
+    title: "选择咨询时间",
     description: "在日历中查看可用时间段并选择合适的咨询时间",
   },
   {
     icon: ClipboardList,
-    title: "填写申请表",
+    title: "填写并提交申请表",
     description: "填写基本信息和咨询需求，帮助咨询师了解您的情况",
+  },
+  {
+    icon: CreditCard,
+    title: "支付咨询费用",
+    description: "支持多种支付方式，安全快捷完成支付",
   },
   {
     icon: CheckCircle,
     title: "完成预约",
-    description: "确认信息后提交预约，等待咨询师确认",
+    description: "支付成功后即完成预约，请留意通知消息",
   },
 ];
 
@@ -32,11 +37,11 @@ export default function ProcessSteps() {
             预约流程
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            简单四步，轻松完成心理咨询预约
+            简单五步，轻松完成心理咨询预约
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 max-w-5xl mx-auto">
           {steps.map((step, index) => (
             <div
               key={index}

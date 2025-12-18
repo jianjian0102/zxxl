@@ -11,8 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, Heart, Moon, Sun, User, LogOut, Calendar, MessageSquare } from "lucide-react";
+import { Menu, Moon, Sun, User, LogOut, Calendar, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import logoImage from "@/assets/logo.jpg";
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -66,7 +67,7 @@ export default function Header({ isDarkMode, toggleDarkMode }: HeaderProps) {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
         <Link href="/" className="flex items-center gap-2" data-testid="link-home-logo">
-          <Heart className="h-6 w-6 text-primary" />
+          <img src={logoImage} alt="Logo" className="h-8 w-8 rounded-full object-cover" />
           <span className="text-xl font-semibold">秩序心理</span>
         </Link>
 

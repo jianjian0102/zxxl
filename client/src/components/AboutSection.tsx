@@ -1,6 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Award, Briefcase, BookOpen } from "lucide-react";
+import phdEnrollment from "@/assets/certificates/phd_enrollment.jpg";
+import masterDegree from "@/assets/certificates/master_degree.jpg";
+import youthCounselor from "@/assets/certificates/youth_counselor.jpg";
+import youthCareerCounselor from "@/assets/certificates/youth_career_counselor.jpg";
+import suicidePrevention from "@/assets/certificates/suicide_prevention.jpg";
 
 export default function AboutSection() {
   const qualifications = [
@@ -67,10 +72,34 @@ export default function AboutSection() {
                   </p>
                 </div>
               </div>
+
+              <div className="mt-12">
+                <h3 className="text-lg font-medium mb-6 text-center">专业证书</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {[
+                    { src: phdEnrollment, label: "博士在读证明" },
+                    { src: masterDegree, label: "硕士学位证" },
+                    { src: youthCounselor, label: "青少年咨询师资格证" },
+                    { src: youthCareerCounselor, label: "青少年职业咨询师资格证" },
+                    { src: suicidePrevention, label: "自杀预防培训结业证" },
+                  ].map((cert, index) => (
+                    <div key={index} className="flex flex-col items-center group">
+                      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border bg-muted mb-3 cursor-pointer hover:shadow-md transition-all">
+                        <img
+                          src={cert.src}
+                          alt={cert.label}
+                          className="object-cover w-full h-full hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <span className="text-xs text-center text-muted-foreground font-medium">{cert.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </section>
+    </section >
   );
 }

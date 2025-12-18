@@ -12,6 +12,8 @@ import {
   visitorLoginSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import { upload } from "./upload";
+import { addDays, isAfter, startOfDay } from "date-fns";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import bcrypt from "bcrypt";
 
@@ -41,20 +43,20 @@ export async function registerRoutes(
   app.post("/api/admin/login", async (req: Request, res: Response) => {
     try {
       const { username, password } = req.body;
-      
+
       if (!username || !password) {
         return res.status(400).json({ error: "请输入用户名和密码" });
       }
-      
+
       if (username !== ADMIN_USERNAME) {
         return res.status(401).json({ error: "用户名或密码错误" });
       }
-      
+
       const isValidPassword = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
       if (!isValidPassword) {
         return res.status(401).json({ error: "用户名或密码错误" });
       }
-      
+
       req.session.isAdmin = true;
       res.json({ success: true, message: "登录成功" });
     } catch (error) {
@@ -84,7 +86,7 @@ export async function registerRoutes(
       if (!email || email.length < 3) {
         return res.json([]);
       }
-      
+
       const users = await storage.searchUsersByEmail(email);
       res.json(users.map(u => ({
         id: u.id,
@@ -102,31 +104,31 @@ export async function registerRoutes(
   app.post("/api/admin/conversations/initiate", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { visitorEmail, visitorName, subject } = req.body;
-      
+
       if (!visitorEmail) {
         return res.status(400).json({ error: "邮箱是必填项" });
       }
-      
+
       // Check if conversation already exists for this email
       const existingConversation = await storage.getConversationByEmail(visitorEmail);
       if (existingConversation) {
         const messages = await storage.getMessagesByConversation(existingConversation.id);
         return res.json({ ...existingConversation, messages, isExisting: true });
       }
-      
+
       // Create new conversation
       const conversation = await storage.createConversation({
         visitorEmail,
         visitorName: visitorName || visitorEmail.split("@")[0],
         subject: subject || "咨询师发起的对话",
       });
-      
+
       // Link to user if they have an account
       const user = await storage.getUserByEmail(visitorEmail);
       if (user) {
         await storage.linkConversationsToUser(visitorEmail, user.id);
       }
-      
+
       const messages = await storage.getMessagesByConversation(conversation.id);
       res.json({ ...conversation, messages, isExisting: false });
     } catch (error) {
@@ -141,34 +143,34 @@ export async function registerRoutes(
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const validatedData = visitorRegisterSchema.parse(req.body);
-      
+
       // Check if email already exists
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
         return res.status(409).json({ error: "该邮箱已被注册" });
       }
-      
+
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
+
       // Create user
       const user = await storage.createVisitorUser({
         email: validatedData.email,
         password: hashedPassword,
         name: validatedData.name,
       });
-      
+
       // Link existing appointments and conversations to this user
       await storage.linkAppointmentsToUser(validatedData.email, user.id);
       await storage.linkConversationsToUser(validatedData.email, user.id);
-      
+
       // Log in automatically
       req.session.userId = user.id;
       req.session.userEmail = user.email;
       req.session.userName = user.name;
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: "注册成功",
         user: { id: user.id, email: user.email, name: user.name }
       });
@@ -185,23 +187,23 @@ export async function registerRoutes(
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const validatedData = visitorLoginSchema.parse(req.body);
-      
+
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user) {
         return res.status(401).json({ error: "邮箱或密码错误" });
       }
-      
+
       const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ error: "邮箱或密码错误" });
       }
-      
+
       req.session.userId = user.id;
       req.session.userEmail = user.email;
       req.session.userName = user.name;
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: "登录成功",
         user: { id: user.id, email: user.email, name: user.name }
       });
@@ -228,7 +230,7 @@ export async function registerRoutes(
   // Get current user info
   app.get("/api/auth/me", (req: Request, res: Response) => {
     if (req.session?.userId) {
-      res.json({ 
+      res.json({
         isLoggedIn: true,
         user: {
           id: req.session.userId,
@@ -281,7 +283,7 @@ export async function registerRoutes(
     try {
       const userId = req.session.userId!;
       const userEmail = req.session.userEmail;
-      
+
       // Get appointments linked to userId or matching email
       const appointments = await storage.getAppointmentsByUserId(userId, userEmail);
       res.json(appointments);
@@ -320,57 +322,57 @@ export async function registerRoutes(
   app.post("/api/appointments", async (req: Request, res: Response) => {
     try {
       const validatedData = insertAppointmentSchema.parse(req.body);
-      
+
       // Check if date is blocked
       const isBlocked = await storage.isDateBlocked(validatedData.appointmentDate);
       if (isBlocked) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Date blocked",
           message: "该日期不开放预约"
         });
       }
-      
+
       // Check if time slot is configured for the consultation mode
       const date = new Date(validatedData.appointmentDate);
       const dayOfWeek = date.getDay();
       const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
       const slotSetting = daySettings.find(s => s.timeSlot === validatedData.appointmentTime);
-      
+
       if (!slotSetting) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Time slot not available",
           message: "该时间段不可预约"
         });
       }
-      
+
       // Check if slot is available for the consultation mode
       const isOnline = validatedData.consultationMode === "online";
       if (isOnline && !slotSetting.isOnlineAvailable) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Online not available",
           message: "该时间段不支持线上咨询"
         });
       }
       if (!isOnline && !slotSetting.isOfflineAvailable) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Offline not available",
           message: "该时间段不支持线下咨询"
         });
       }
-      
+
       // Check for time slot conflict (already booked)
       const isAvailable = await storage.checkTimeSlotAvailable(
         validatedData.appointmentDate,
         validatedData.appointmentTime
       );
-      
+
       if (!isAvailable) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "Time slot conflict",
           message: "该时间段已被预约，请选择其他时间"
         });
       }
-      
+
       const appointment = await storage.createAppointment(validatedData);
       res.status(201).json(appointment);
     } catch (error) {
@@ -389,7 +391,7 @@ export async function registerRoutes(
       if (!["pending", "pending_payment", "confirmed", "cancelled", "completed"].includes(status)) {
         return res.status(400).json({ error: "Invalid status" });
       }
-      
+
       const appointment = await storage.updateAppointmentStatus(req.params.id, status);
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
@@ -408,82 +410,82 @@ export async function registerRoutes(
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
       }
-      
+
       // Verify ownership via email (unless admin)
       const { verifyEmail } = req.body;
       const isAdmin = req.session?.isAdmin;
       if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.contactEmail)) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Unauthorized",
           message: "邮箱验证失败，无权修改此预约"
         });
       }
-      
+
       // Check modification deadline: 10:00 PM on the day before
       const appointmentDate = new Date(appointment.appointmentDate);
       const deadline = new Date(appointmentDate);
       deadline.setDate(deadline.getDate() - 1);
       deadline.setHours(22, 0, 0, 0);
-      
+
       if (new Date() > deadline) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Modification deadline passed",
           message: "修改截止时间已过（咨询前一天22:00前）"
         });
       }
-      
+
       // If changing date/time, check for conflicts
       const newDate = req.body.appointmentDate || appointment.appointmentDate;
       const newTime = req.body.appointmentTime || appointment.appointmentTime;
       const consultationMode = appointment.consultationMode;
-      
+
       if (newDate !== appointment.appointmentDate || newTime !== appointment.appointmentTime) {
         // Check if new date is blocked
         const isBlocked = await storage.isDateBlocked(newDate);
         if (isBlocked) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "Date blocked",
             message: "该日期不开放预约"
           });
         }
-        
+
         // Check if time slot is configured for the consultation mode
         const date = new Date(newDate);
         const dayOfWeek = date.getDay();
         const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
         const slotSetting = daySettings.find(s => s.timeSlot === newTime);
-        
+
         if (!slotSetting) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "Time slot not available",
             message: "该时间段不可预约"
           });
         }
-        
+
         // Check if slot is available for the consultation mode
         const isOnline = consultationMode === "online";
         if (isOnline && !slotSetting.isOnlineAvailable) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "Online not available",
             message: "该时间段不支持线上咨询"
           });
         }
         if (!isOnline && !slotSetting.isOfflineAvailable) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "Offline not available",
             message: "该时间段不支持线下咨询"
           });
         }
-        
+
         const isAvailable = await storage.checkTimeSlotAvailable(newDate, newTime, req.params.id);
         if (!isAvailable) {
-          return res.status(409).json({ 
+          return res.status(409).json({
             error: "Time slot conflict",
             message: "该时间段已被预约，请选择其他时间"
           });
         }
       }
-      
+
       const updated = await storage.updateAppointment(req.params.id, req.body);
       res.json(updated);
     } catch (error) {
@@ -499,30 +501,30 @@ export async function registerRoutes(
       if (!appointment) {
         return res.status(404).json({ error: "Appointment not found" });
       }
-      
+
       // Verify ownership via email (unless admin)
       const { verifyEmail } = req.body;
       const isAdmin = req.session?.isAdmin;
       if (!isAdmin && (!verifyEmail || verifyEmail !== appointment.contactEmail)) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Unauthorized",
           message: "邮箱验证失败，无权取消此预约"
         });
       }
-      
+
       // Check cancellation deadline: 10:00 PM on the day before
       const appointmentDate = new Date(appointment.appointmentDate);
       const deadline = new Date(appointmentDate);
       deadline.setDate(deadline.getDate() - 1);
       deadline.setHours(22, 0, 0, 0);
-      
+
       if (new Date() > deadline) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Cancellation deadline passed",
           message: "取消截止时间已过（咨询前一天22:00前）"
         });
       }
-      
+
       const updated = await storage.updateAppointmentStatus(req.params.id, "cancelled");
       res.json(updated);
     } catch (error) {
@@ -633,23 +635,35 @@ export async function registerRoutes(
     try {
       const dateStr = req.params.date;
       const mode = req.query.mode as "online" | "offline" | undefined;
-      
+
       // Check if date is blocked
       const isBlocked = await storage.isDateBlocked(dateStr);
       if (isBlocked) {
         return res.json({ slots: [], isBlocked: true });
       }
-      
+
       // Get day of week from date
       const date = new Date(dateStr);
       const dayOfWeek = date.getDay();
-      
+
+      // Check 2 week limit for non-admin
+      const isAdmin = req.session && req.session.isAdmin;
+      if (!isAdmin) {
+        const today = startOfDay(new Date());
+        const maxDate = addDays(today, 14);
+        if (isAfter(date, maxDate)) {
+          // Return empty or error? UI should prevent this, but API should also enforce.
+          // Let's return empty slots to indicate unavailability.
+          return res.json({ slots: [], isBlocked: false });
+        }
+      }
+
       // Get schedule settings for this day
       const daySettings = await storage.getScheduleSettingsByDay(dayOfWeek);
-      
+
       // Get already booked slots
       const bookedSlots = await storage.getBookedSlots(dateStr);
-      
+
       // Filter by mode if specified
       const availableSlots = daySettings
         .filter(s => {
@@ -663,7 +677,7 @@ export async function registerRoutes(
           isOfflineAvailable: s.isOfflineAvailable && !bookedSlots.includes(s.timeSlot),
           isBooked: bookedSlots.includes(s.timeSlot),
         }));
-      
+
       res.json({ slots: availableSlots, isBlocked: false });
     } catch (error) {
       console.error("Error fetching available slots:", error);
@@ -774,16 +788,16 @@ export async function registerRoutes(
     try {
       const userId = req.session.userId!;
       const userEmail = req.session.userEmail;
-      
+
       const conversations = await storage.getConversationsByUserId(userId, userEmail);
-      
+
       const conversationsWithMessages = await Promise.all(
         conversations.map(async (conv) => {
           const messages = await storage.getMessagesByConversation(conv.id);
           return { ...conv, messages };
         })
       );
-      
+
       res.json(conversationsWithMessages);
     } catch (error) {
       console.error("Error fetching user conversations:", error);
@@ -814,26 +828,26 @@ export async function registerRoutes(
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
       }
-      
+
       // Verify ownership via: admin, session userId, session email, or verifyEmail query param
       const verifyEmail = req.query.verifyEmail as string;
       const isAdmin = req.session?.isAdmin;
       const sessionUserId = req.session?.userId;
       const sessionEmail = req.session?.userEmail;
-      
-      const isOwner = 
+
+      const isOwner =
         isAdmin ||
         (sessionUserId && conversation.userId === sessionUserId) ||
         (sessionEmail && conversation.visitorEmail === sessionEmail) ||
         (verifyEmail && verifyEmail === conversation.visitorEmail);
-      
+
       if (!isOwner) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Unauthorized",
           message: "邮箱验证失败，无权查看此对话"
         });
       }
-      
+
       const messages = await storage.getMessagesByConversation(req.params.id);
       res.json({ ...conversation, messages });
     } catch (error) {
@@ -846,21 +860,21 @@ export async function registerRoutes(
   app.post("/api/conversations", async (req: Request, res: Response) => {
     try {
       const validatedData = insertConversationSchema.parse(req.body);
-      
+
       // Check if email is provided (required)
       if (!validatedData.visitorEmail) {
         return res.status(400).json({ error: "邮箱是必填项" });
       }
-      
+
       // Check if email already has a conversation
       const existingConversation = await storage.getConversationByEmail(validatedData.visitorEmail);
       if (existingConversation) {
-        return res.status(409).json({ 
+        return res.status(409).json({
           error: "该邮箱已有对话记录",
-          existingConversationId: existingConversation.id 
+          existingConversationId: existingConversation.id
         });
       }
-      
+
       const conversation = await storage.createConversation(validatedData);
       res.status(201).json(conversation);
     } catch (error) {
@@ -872,41 +886,108 @@ export async function registerRoutes(
     }
   });
 
-  // Send message in conversation - requires email verification for visitors
+  // Send message in conversation - requires email verification  // Messages
+  app.post("/api/upload", upload.single("file"), (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl, contentType: req.file.mimetype });
+  });
+
+  app.get("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+    try {
+      const conversation = await storage.getConversation(req.params.id);
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Verify ownership via: admin, session userId, session email, or verifyEmail query param
+      const verifyEmail = req.query.verifyEmail as string;
+      const isAdmin = req.session?.isAdmin;
+      const sessionUserId = req.session?.userId;
+      const sessionEmail = req.session?.userEmail;
+
+      const isOwner =
+        isAdmin ||
+        (sessionUserId && conversation.userId === sessionUserId) ||
+        (sessionEmail && conversation.visitorEmail === sessionEmail) ||
+        (verifyEmail && verifyEmail === conversation.visitorEmail);
+
+      if (!isOwner) {
+        return res.status(403).json({
+          error: "Unauthorized",
+          message: "邮箱验证失败，无权查看此对话"
+        });
+      }
+
+      const messages = await storage.getMessagesByConversation(req.params.id);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching conversation messages:", error);
+      res.status(500).json({ error: "Failed to fetch conversation messages" });
+    }
+  });
+
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
     try {
       const conversation = await storage.getConversation(req.params.id);
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
       }
-      
+
       const { senderType, verifyEmail } = req.body;
       const isAdmin = req.session?.isAdmin;
-      
+
       // Admin can send as "admin", visitors must verify email
       if (senderType === "admin" && !isAdmin) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: "Unauthorized",
           message: "无权以管理员身份发送消息"
         });
       }
-      
+
       // Visitors must verify their email matches the conversation
       if (senderType === "visitor" && !isAdmin) {
         if (!verifyEmail || verifyEmail !== conversation.visitorEmail) {
-          return res.status(403).json({ 
+          return res.status(403).json({
             error: "Unauthorized",
             message: "邮箱验证失败，无权在此对话中发送消息"
           });
         }
       }
-      
+
       const messageData = {
         ...req.body,
         conversationId: req.params.id,
       };
       const validatedData = insertMessageSchema.parse(messageData);
-      const message = await storage.createMessage(validatedData);
+
+      // Determine sender email and if from admin
+      let senderEmail: string | null = null;
+      let isFromAdmin = false;
+
+      if (senderType === "admin") {
+        senderEmail = req.session?.userEmail || null;
+        isFromAdmin = true;
+      } else if (senderType === "visitor") {
+        senderEmail = conversation.visitorEmail;
+        isFromAdmin = false;
+      }
+
+      // Verify conversation belongs to user (or is admin)
+      // Here we skip strict check for now as visitor email verification is loosely coupled in this demo
+
+      // Create message with optional image
+      const message = await storage.createMessage({
+        conversationId: req.params.id,
+        content: validatedData.content,
+        imageUrl: validatedData.imageUrl,
+        contentType: validatedData.contentType || "text",
+        senderName: validatedData.senderName,
+        senderEmail: senderEmail,
+        isFromAdmin: isFromAdmin,
+      });
       res.status(201).json(message);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -969,6 +1050,34 @@ export async function registerRoutes(
         return res.status(404).json({ error: "File not found" });
       }
       return res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+
+  app.post("/api/admin/conversations/initiate", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { visitorEmail, visitorName } = req.body;
+      if (!visitorEmail) {
+        return res.status(400).json({ error: "Visitor email is required" });
+      }
+
+      // Check if conversation exists
+      const existing = await storage.getConversationByEmail(visitorEmail);
+      if (existing) {
+        const messages = await storage.getMessagesByConversation(existing.id);
+        return res.json({ ...existing, messages, isExisting: true });
+      }
+
+      // Create new conversation
+      const conversation = await storage.createConversation({
+        visitorEmail,
+        visitorName: visitorName || "访客", // Default name if not provided
+        userId: null // Will be linked if user registers later
+      });
+
+      return res.status(201).json({ ...conversation, messages: [], isExisting: false });
+    } catch (error) {
+      console.error("Error initiating conversation:", error);
+      res.status(500).json({ error: "Failed to initiate conversation" });
     }
   });
 

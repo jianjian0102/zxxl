@@ -12,6 +12,7 @@ import MessagesPage from "@/pages/messages";
 import AppointmentsPage from "@/pages/appointments";
 import AdminSettingsPage from "@/pages/admin-settings";
 import AdminAppointmentsPage from "@/pages/admin-appointments";
+import AdminMessagesPage from "@/pages/admin-messages";
 import AdminLoginPage from "@/pages/admin-login";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/admin/login" component={AdminLoginPage} />
       <Route path="/admin/settings" component={AdminSettingsPage} />
       <Route path="/admin/appointments" component={AdminAppointmentsPage} />
+      <Route path="/admin/messages" component={AdminMessagesPage} />
       <Route component={NotFound} />
     </Switch>
   );
