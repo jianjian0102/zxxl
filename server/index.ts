@@ -5,6 +5,10 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
+
+const PostgresStore = connectPg(session);
 
 declare module "express-session" {
   interface SessionData {
@@ -42,6 +46,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "server", "uploads")
 
 app.use(
   session({
+    store: new PostgresStore({ pool, createTableIfMissing: true }),
     secret: process.env.SESSION_SECRET || "fallback-secret-change-me",
     resave: false,
     saveUninitialized: false,
@@ -49,7 +54,7 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     },
   })
 );
