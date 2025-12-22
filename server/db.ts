@@ -10,7 +10,6 @@ if (!process.env.DATABASE_URL) {
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // 强制开启 SSL 并允许自签名证书
   ssl: {
     rejectUnauthorized: false
   }
